@@ -1,0 +1,14 @@
+    Usage:
+             anicli-list [ARG]
+    Options:
+             --help | -h        Print this message
+             -add               Add a anime
+             -del               Delete a anime
+             -rconf             Reconfigure a anime
+             -status            Print all anime status
+             -waifu             Define your waifu
+             --del-waifu        Delete a waifu
+             -show              Show status of a specific anime
+             --add-rank         Rank an anime
+             --del-rank         Delete a rank
+             -rank              Show the rank
