@@ -7,24 +7,49 @@ use std::fs::File;
 use std::io::prelude::*;
 
 fn main() {
-    get_args();
+    get_args(1);
 }
 
 
-fn get_args() {
+fn get_args(number_ofargs: usize) {
     // args
     let args: Vec<String> = env::args().collect();
-    let argument = &args[1].as_str();
+    let argument = &args[number_ofargs].as_str();
 
     // Get args
     match args[1].as_str() {
         "-h" | "--help" => get_help(),
         "-add" => add_anime(),
+        "--add" => add_anime_nomenu(),
         _ => println!("Argument: {argument} not found")
     }
 }
 
+fn get_anime_file(name_arg: usize,add_string: &str) {
+     // args
+    let args: Vec<String> = env::args().collect();
 
+    // set anime name
+         let anime_name = &args[name_arg].as_str();
+    // set default path var
+    let default_path = "/usr/share/anicli-list/animes/db/"; 
+    // set vars
+    let mut anime_file = String::new();        
+        //// anime path
+        let anime_path = {default_path}.to_owned()+{&anime_name};
+        //// redirect the input for a file
+        // create the file anime.conf
+        anime_file = {anime_path}.to_owned()+"/anime.conf";
+ 
+        let mut edit_anime_file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(anime_file)
+            .unwrap();
+            if let Err(anime_file) = writeln!(edit_anime_file, "\n{}", add_string) {
+        eprintln!("Couldn't write to file: {}", anime_file);    
+    }    
+}
 
 fn get_help() {
     // File
@@ -153,3 +178,53 @@ fn add_anime() {
     }
 // anime season end
 }
+
+fn add_anime_nomenu() {
+// set args
+    let args: Vec<String> = env::args().collect();
+    // set anime name
+         let anime_name = &args[2].as_str();
+    // set default path var
+    let default_path = "/usr/share/anicli-list/animes/db/"; 
+    // set vars
+    let mut anime_file = String::new();
+
+        
+        //// anime path
+        let anime_path = {default_path}.to_owned()+{&anime_name};
+        let _ = fs::create_dir(anime_path.clone());
+        //// redirect the input for a file
+        // create the file anime.conf
+        let anime_name_compose = "name: ".to_owned()+{&anime_name};
+        anime_file = {anime_path}.to_owned()+"/anime.conf";
+
+        let _ = File::create(anime_file.clone());
+        // redirect input
+        fs::write(anime_file.clone(), anime_name_compose)
+            .expect("The file anime.conf not exist");
+
+// anime name end
+
+   
+// anime status
+     // args check
+     match args[3].as_str() {
+        "--status" => status_anime_nomenu(),
+        _ => println!("Argument: {} not found", &args[3].as_str())
+
+}
+        fn status_anime_nomenu() {
+// set args
+    let args: Vec<String> = env::args().collect();
+// set anime status
+        let anime_status = &args[4].as_str();
+// anime status
+        //// format anime status
+        let anime_status = "status: ".to_owned()+{&anime_status};
+        //// redirect the input for a file       
+        get_anime_file(2, &anime_status); 
+        println!("{}", &anime_status);
+        }
+// anime status end
+    }
+
