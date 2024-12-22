@@ -25,7 +25,9 @@ fn get_args(number_ofargs: usize) {
     }
 }
 
-fn get_anime_file(name_arg: usize,add_string: &str) {
+
+
+fn get_anime_file(name_arg: usize,new_line: usize,add_string: &str) {
      // args
     let args: Vec<String> = env::args().collect();
 
@@ -40,7 +42,8 @@ fn get_anime_file(name_arg: usize,add_string: &str) {
         //// redirect the input for a file
         // create the file anime.conf
         anime_file = {anime_path}.to_owned()+"/anime.conf";
- 
+
+        if new_line == 1 {
         let mut edit_anime_file = OpenOptions::new()
             .write(true)
             .append(true)
@@ -48,8 +51,18 @@ fn get_anime_file(name_arg: usize,add_string: &str) {
             .unwrap();
             if let Err(anime_file) = writeln!(edit_anime_file, "\n{}", add_string) {
         eprintln!("Couldn't write to file: {}", anime_file);    
-    }    
+    }   } else if new_line == 0 {
+         let mut edit_anime_file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(anime_file)
+            .unwrap();
+            if let Err(anime_file) = writeln!(edit_anime_file, "{}", add_string) {
+        eprintln!("Couldn't write to file: {}", anime_file);    
+        }
 }
+}
+
 
 fn get_help() {
     // File
@@ -180,7 +193,7 @@ fn add_anime() {
 }
 
 fn add_anime_nomenu() {
-// set args
+    // set args
     let args: Vec<String> = env::args().collect();
     // set anime name
          let anime_name = &args[2].as_str();
@@ -203,10 +216,10 @@ fn add_anime_nomenu() {
         fs::write(anime_file.clone(), anime_name_compose)
             .expect("The file anime.conf not exist");
 
-// anime name end
+// anime name nomenu end
 
    
-// anime status
+// anime status nomenu
      // args check
      match args[3].as_str() {
         "--status" => status_anime_nomenu(),
@@ -214,17 +227,57 @@ fn add_anime_nomenu() {
 
 }
         fn status_anime_nomenu() {
-// set args
-    let args: Vec<String> = env::args().collect();
-// set anime status
+        // set args
+        let args: Vec<String> = env::args().collect();
+        // set anime status
         let anime_status = &args[4].as_str();
-// anime status
         //// format anime status
         let anime_status = "status: ".to_owned()+{&anime_status};
-        //// redirect the input for a file       
-        get_anime_file(2, &anime_status); 
-        println!("{}", &anime_status);
-        }
-// anime status end
-    }
 
+        //// redirect the input for a file       
+        get_anime_file(2,1, &anime_status); 
+    }
+// anime status nomenu end
+
+// anime episode nomenu
+    match args[5].as_str() {
+        "--ep" => add_anime_episode_nomenu(),
+        _ => println!("Argument: {} not found", &args[5].as_str())
+}   
+            
+        fn add_anime_episode_nomenu() {
+        // set args
+        let args: Vec<String> = env::args().collect();
+        
+        // set anime episode
+        let anime_episode = &args[6].as_str();
+        
+        // format anime episode
+        let anime_episode = "episode: ".to_owned()+{&anime_episode};
+        
+        //// redirect the input for a file
+        get_anime_file(2,0, &anime_episode);
+        }
+// anime episode nomenu end
+
+// anime season nomenu
+    match args[7].as_str() {
+        "--season" => add_anime_season_nomenu(),
+        _ => println!("Argument: {} not found", &args[7].as_str())
+}
+        
+        fn add_anime_season_nomenu() {
+        // set args
+        let args: Vec<String> = env::args().collect();
+         
+
+        // set anime season
+        let anime_season = &args[8].as_str();
+        
+        // format anime season
+        let anime_season = "season: ".to_owned()+{&anime_season};
+
+        //// redirect the input for a file
+        get_anime_file(2,0, &anime_season)
+        }
+}
