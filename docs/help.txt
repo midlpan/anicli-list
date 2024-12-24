@@ -1,5 +1,6 @@
     Usage:
              anicli-list [ARG]
+             anicli-list --add [ANIME NAME] --status [ANIME STATUS] --ep [ANIME EPISODE] --season [ANIME SEASON] # In this exact order]
     Options:
              --help | -h        Print this message
              -add               Add a anime
@@ -12,3 +13,10 @@
              --add-rank         Rank an anime
              --del-rank         Delete a rank
              -rank              Show the rank
+             
+             --add              Add an anime without interactive questions
+             --del              Delete an anime without interactive questions
+    The --add Options:
+             --status           Add an anime status without a interactive questions
+             --ep               Add an anime episode without a interactive questions
+             --season           Add an anime season without a interactive questions

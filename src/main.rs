@@ -19,9 +19,10 @@ fn get_args(number_ofargs: usize) {
     // Get args
     match args[1].as_str() {
         "-h" | "--help" => get_help(),
-        "-add" => add_anime(),
+        "-add"  => add_anime(),
         "--add" => add_anime_nointeractive(),
-        "-del" => del_anime(),
+        "-del"  => del_anime(),
+        "--del" => del_anime_nointeractive(),
         _ => println!("Argument: {argument} not found")
     }
 }
@@ -329,6 +330,68 @@ fn del_anime() {
         let _ = io::stdin()
             .read_line(&mut anime_name)
             .expect("Failed to read line");
+        //// Set anime file
+        // Set anime path
+        let mut db_conf_file = File::open("path.conf").expect("File path.conf not exists");
+        let mut default_path = String::new();
+        db_conf_file.read_to_string(&mut default_path)
+            .expect("Can not read the file: db_path.txt");
+        //// format default_path
+        let default_path    = default_path.replace("\n", "");
+
+        // Set anime path
+        //// anime path
+        let anime_path = {default_path}.to_owned()+{&anime_name};
+
+        let anime_file = anime_path.replace("\n", "");
+
+
+        //// find anime file
+        match fs::exists(anime_file.clone()) {
+         Ok(true) => println!("The anime archive exists"),
+         Ok(false) => {
+             println!("Anime file does not exist");
+             std::process::exit(0);
+         },
+         Err(e) => println!("An error occurred when checking the anime file: {}", e),
+        }
+
+        //// Do you really want to remove the anime?
+        print!("Do you really want to remove the anime[Y|N]?:");
+        io::stdout().flush().unwrap();
+
+        // user input
+        let _ = io::stdin()
+            .read_line(&mut question)
+            .expect("Failed to read line");
+
+        let question: &str = question.as_str();
+
+    match question {
+        "Y\n"  => {
+            match fs::remove_dir_all(anime_file) {
+                Ok(_) => println!("Anime has be deleted"),
+                Err(e) => println!("An error occurred while removing the anime: {}", e),
+            }
+        },
+        "N\n" => println!("Anime not removed."),
+        _ => println!("Option not valid\nOption: {}", question),
+    }
+}
+
+
+
+// Delete anime non-interactively
+
+fn del_anime_nointeractive() {
+        // Set question var
+        let mut question          = String::new();
+
+        //// Set args
+        let args: Vec<String> = env::args().collect();
+        // Set anime name
+        let anime_name        = &args[2].as_str();
+        
         //// Set anime file
         // Set anime path
         let mut db_conf_file = File::open("path.conf").expect("File path.conf not exists");
