@@ -1,6 +1,7 @@
     Usage:
              anicli-list [ARG]
              anicli-list --add [ANIME NAME] --status [ANIME STATUS] --ep [ANIME EPISODE] --season [ANIME SEASON] # In this exact order]
+             anicli-list --rconf [ANIME NAME] [ARG] [TEXT]
     Options:
              --help | -h        Print this message
              -add               Add a anime
@@ -16,7 +17,14 @@
              
              --add              Add an anime without interactive questions
              --del              Delete an anime without interactive questions
+             --rconf            Reconfigure an anime without interactive questions 
     The --add Options:
              --status           Add an anime status without a interactive questions
              --ep               Add an anime episode without a interactive questions
              --season           Add an anime season without a interactive questions
+    The --rconf Options:
+             --name             Reconfigure the name of an anime without asking any questions
+             --status           Reconfigures an anime's status without intractive questions
+             --ep               Reconfigure an anime episode without interactive questions
+             --season           Reconfigure an anime season without interactive questions
+    WARNING: Only one argument can be used at a time
