@@ -7,7 +7,7 @@
              -add               Add a anime
              -del               Delete a anime
              -rconf             Reconfigure a anime
-             -status            Print all anime status
+             --list             Print all animes in the list
              -waifu             Define your waifu
              --del-waifu        Delete a waifu
              -show              Show status of a specific anime

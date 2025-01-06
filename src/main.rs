@@ -26,8 +26,9 @@ fn get_args(number_ofargs: usize) {
         "--add" => add_anime_nointeractive(),
         "-del"  => del_anime(),
         "--del" => del_anime_nointeractive(),
-        "-rconf" => reconfig_anime().expect("A error ocured reconfiguring"),
+        "-rconf" => reconfig_anime().expect("An error occurred reconfiguring"),
         "--rconf" => reconfig_anime_nointeractive(),
+        "--list" => print_anime_list().expect("An error occurred showing the list"),
         _ => println!("Argument: {argument} not found")
     }
 }
@@ -696,6 +697,8 @@ fn reconfig_anime() -> Result<(), Box<dyn Error>>  {
 }
 
 
+
+// Reconfig anime in a no interactive form
 fn reconfig_anime_nointeractive() {
 
         // Set args
@@ -812,6 +815,7 @@ fn reconfig_anime_nointeractive() {
     }
 }
 
+// Reconfig anime in a no interactive form end
 
 fn anime_file_exists(file: String) {
 //// Check if the file exist
@@ -850,3 +854,57 @@ fn grep_string_in_file_and_replace(regex: Regex, file: &str, new_string: &str) -
     Ok(())
 }
 
+
+
+
+// Print Anime list
+fn print_anime_list() -> io::Result<()> {
+    // Set default path var
+    let mut db_conf_file = File::open("path.conf").expect("File path.conf not exists");
+    let mut default_path = String::new();
+
+    db_conf_file.read_to_string(&mut default_path)
+        .expect("Can not read the file: path.conf");
+    //// format default_path
+    let default_path    = default_path.replace("\n", "");
+    let _ = show_subdirs(&default_path);
+    Ok(())
+}
+
+fn show_subdirs(default_path: &str) -> io::Result<()>  {
+    // Read Directory
+    let read_path = fs::read_dir(default_path)?;
+    
+    for read_paths in read_path {
+        let read_paths  = read_paths?;
+        let view_path  = read_paths.path();
+        
+        if view_path.is_dir() {
+            let _ = show_subdirs(view_path.to_str().unwrap())?;
+            let _ = show_files_in_subdirs(&view_path);
+        } else if view_path.is_file(){    
+            let _ = show_files_in_subdirs(&view_path);
+        }
+
+    }
+    Ok(())
+}
+fn show_files_in_subdirs(default_path: &std::path::Path) -> io::Result<()> {
+    let mut open_path = fs::File::open(default_path)?;    
+    let mut content   = String::new();
+    let _ = open_path.read_to_string(&mut content);
+    // Make a good CLI
+    // Create a border
+    let border_lenght = content.len();
+    let border_char   = "𝋯";
+    // Show top border 
+    println!("{}", border_char.to_string().repeat(border_lenght));
+    // Create a border behind the content
+    let content = content.replace("name: ", "𝌆 name: ").replace("status: ", "𝌆 status: ").replace("episode: ", "𝌆 episode: ").replace("season: ", "𝌆 season: ").replace("\n", "").replace("𝌆 status: ", "\n𝌆 status: ").replace("𝌆 episode: ", "\n𝌆 episode: ").replace("𝌆 season: ", "\n𝌆 season: ");
+    // Print the content
+    println!("{}", content);
+    // Show ending edge
+    println!("{}", border_char.to_string().repeat(border_lenght));
+    Ok(())    
+}
+// Print anime list end
