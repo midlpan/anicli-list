@@ -29,6 +29,8 @@ fn get_args(number_ofargs: usize) {
         "-rconf" => reconfig_anime().expect("An error occurred reconfiguring"),
         "--rconf" => reconfig_anime_nointeractive(),
         "--list" => print_anime_list().expect("An error occurred showing the list"),
+        "--show" => print_specific_anime().expect("An error occurred showing a specific anime in the list"),
+
         _ => println!("Argument: {argument} not found")
     }
 }
@@ -86,18 +88,40 @@ fn add_anime_file(name_arg: usize,new_line: usize,add_string: &str) {
 
 
 fn get_help() {
-    // File
-    let help_file     = "docs/help.txt";
-    let mut help_file = File::open(help_file).expect("File help.txt not founded");
+    // Set Help
+    let help = "    Usage:
+             anicli-list [ARG]
+             anicli-list --add [ANIME NAME] --status [ANIME STATUS] --ep [ANIME EPISODE] --season [ANIME SEASON] # In this exact order]
+             anicli-list --rconf [ANIME NAME] [ARG] [TEXT]
+             anicli-list --show [ANIME NAME]
+    Options:
+             --help | -h        Print this message
+             -add               Add a anime
+             -del               Delete a anime
+             -rconf             Reconfigure a anime
+             --list             Print all animes in the list
+             -waifu             Define your waifu
+             --del-waifu        Delete a waifu
+             --show             Show the configuration of a specific anime
+             --add-rank         Rank an anime
+             --del-rank         Delete a rank
+             -rank              Show the rank
 
-
-    // File content
-    let mut help_content = String::new();
-    help_file.read_to_string(&mut help_content)
-        .expect("help file can not be read");
-
+             --add              Add an anime without interactive questions
+             --del              Delete an anime without interactive questions
+             --rconf            Reconfigure an anime without interactive questions
+    The --add Options:
+             --status           Add an anime status without a interactive questions
+             --ep               Add an anime episode without a interactive questions
+             --season           Add an anime season without a interactive questions
+    The --rconf Options:
+             --name             Reconfigure the name of an anime without asking any questions
+             --status           Reconfigures an anime's status without intractive questions
+             --ep               Reconfigure an anime episode without interactive questions
+             --season           Reconfigure an anime season without interactive questions
+    WARNING: Only one argument can be used at a time";
     // Print help
-    println!("{help_content}");
+    println!("{help}");
 }
 
 
@@ -820,7 +844,7 @@ fn reconfig_anime_nointeractive() {
 fn anime_file_exists(file: String) {
 //// Check if the file exist
 match fs::exists(file) {
-        Ok(true) => println!("The anime archive exists"),
+        Ok(true) => println!("Anime archive exists"),
         Ok(false) => {
                             println!("Anime file does not exist");
                             std::process::exit(1);
@@ -889,10 +913,20 @@ fn show_subdirs(default_path: &str) -> io::Result<()>  {
     }
     Ok(())
 }
+
 fn show_files_in_subdirs(default_path: &std::path::Path) -> io::Result<()> {
     let mut open_path = fs::File::open(default_path)?;    
     let mut content   = String::new();
     let _ = open_path.read_to_string(&mut content);
+    // A good CLI
+    a_good_presentation(content);
+   
+    Ok(())    
+}
+// Print anime list end
+
+
+fn a_good_presentation(content: String) {
     // Make a good CLI
     // Create a border
     let border_lenght = content.len();
@@ -905,6 +939,37 @@ fn show_files_in_subdirs(default_path: &std::path::Path) -> io::Result<()> {
     println!("{}", content);
     // Show ending edge
     println!("{}", border_char.to_string().repeat(border_lenght));
-    Ok(())    
+ 
+
 }
-// Print anime list end
+
+// Print a scpecific anime
+fn print_specific_anime() -> io::Result<()> {
+    // Set args
+    let args: Vec<String> = env::args().collect();
+    // Set default path var
+    let mut db_conf_file = File::open("path.conf").expect("File path.conf not exists");
+    let mut default_path = String::new();
+
+    db_conf_file.read_to_string(&mut default_path)
+        .expect("Can not read the file: path.conf");
+    //// format default_path
+    let default_path    = default_path.replace("\n", "");
+    
+    //// Set selected anime
+    let selected_anime = &args[2].as_str();
+    let selected_anime = selected_anime.to_owned().to_owned()+"/";
+    //// Find anime file
+    let anime_path     = default_path.to_owned()+&selected_anime;
+    let anime_file     = anime_path.to_owned()+"/anime.conf";
+    anime_file_exists(anime_file.clone());
+   
+    // Read the file
+    let anime_file_open = fs::File::open(anime_file);
+    let mut content     = String::new();
+    let _ = anime_file_open?.read_to_string(&mut content);
+    // A good CLI
+    a_good_presentation(content);
+    Ok(())
+}
+// Print a scpecific anime end
