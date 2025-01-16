@@ -93,6 +93,7 @@ fn get_help() {
              anicli-list --rconf [ANIME NAME] [ARG] [TEXT]
              anicli-list --show  [ANIME NAME]
              anicli-list --waifu [WAIFU] --anime [ANIME NAME]
+             anicli-list --del-waifu [ANIME NAME]
     Options:
              --help | -h        Print this message
              -add               Add a anime
