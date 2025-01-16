@@ -32,6 +32,8 @@ fn get_args(number_ofargs: usize) {
         "--show" => print_specific_anime().expect("An error occurred showing a specific anime in the list"),
         "-waifu" => add_waifu(),
         "--waifu" => add_waifu_nointeractive(),
+        "-del-waifu" => del_waifu(),
+        "--del-waifu" => del_waifu_nointeractive(),
         _ => println!("Argument: {argument} not found")
     }
 }
@@ -87,10 +89,11 @@ fn get_help() {
     // Set Help
     let help = "    Usage:
              anicli-list [ARG]
-             anicli-list --add [ANIME NAME] --status [ANIME STATUS] --ep [ANIME EPISODE] --season [ANIME SEASON] # In this exact order]
+             anicli-list --add   [ANIME NAME] --status [ANIME STATUS] --ep [ANIME EPISODE] --season [ANIME SEASON] # In this exact order
              anicli-list --rconf [ANIME NAME] [ARG] [TEXT]
-             anicli-list --show [ANIME NAME]
+             anicli-list --show  [ANIME NAME]
              anicli-list --waifu [WAIFU] --anime [ANIME NAME]
+             anicli-list --del-waifu [ANIME NAME]
     Options:
              --help | -h        Print this message
              -add               Add a anime
@@ -98,7 +101,8 @@ fn get_help() {
              -rconf             Reconfigure a anime
              --list             Print all animes in the list
              -waifu             Define your waifu
-             --del-waifu        Delete a waifu
+             -del-waifu         Delete a waifu
+             --del-waifu        Delete a waifu without interactive questions
              --show             Show the configuration of a specific anime
              --add-rank         Rank an anime
              --del-rank         Delete a rank
@@ -970,3 +974,93 @@ fn add_waifu_nointeractive() {
         std::process::exit(1);
     }
 }
+// Add an anime waifu from no interactive questions END
+
+
+
+// Delete anime waifu
+fn del_waifu() {
+// Set default vars
+    let mut anime_name = String::new();
+    let mut question   = String::new();
+// anime name
+        print!("What is the anime name?:");
+        io::stdout().flush().unwrap();
+
+        //// user input
+        let _ = io::stdin()
+            .read_line(&mut anime_name)
+            .expect("Failed to read line");
+
+    let default_path = set_default_path();
+    let anime_file   = default_path.to_owned()+&replace_characters_to_files(&anime_name)
+        .replace("\n", "")
+        .to_owned()+"/anime.conf";
+    anime_file_exists(anime_file.clone());
+
+        //// Do you really want to remove the waifu UwU?
+        print!("Do you really want to remove the waifu UwU[Y|N]?:");
+        io::stdout().flush().unwrap();
+
+        // user input
+        let _ = io::stdin()
+            .read_line(&mut question)
+            .expect("Failed to read line");
+
+        let question = question.as_str();
+    
+    match question {
+        "Y\n"  => {
+            reconf_anime("waifu: ", "", &anime_file);
+            let _ = replace_string_infile("", "waifu: ", &anime_file);
+            println!("Waifu removed");
+            },
+
+        "N\n" => println!("Waifu not removed."),
+        _ => println!("Option not valid\nOption: {}", question),
+    }
+}
+// Delete anime waifu end
+
+
+
+// Delete an anime waifu in a non-interactive way
+fn del_waifu_nointeractive() {
+// Set args
+    let args: Vec<String> = env::args().collect();
+
+    // Set default vars
+    let mut question   = String::new();
+    // anime name
+    let anime_name   = &args[2]; 
+
+    let default_path = set_default_path();
+    let anime_file   = default_path.to_owned()+&replace_characters_to_files(&anime_name)
+        .replace("\n", "")
+        .to_owned()+"/anime.conf";
+    anime_file_exists(anime_file.clone());
+
+        //// Do you really want to remove the waifu UwU?
+        print!("Do you really want to remove the waifu UwU[Y|N]?:");
+        io::stdout().flush().unwrap();
+
+        // user input
+        let _ = io::stdin()
+            .read_line(&mut question)
+            .expect("Failed to read line");
+
+        let question = question.as_str();
+    
+    match question {
+        "Y\n"  => {
+            reconf_anime("waifu: ", "", &anime_file);
+            let _ = replace_string_infile("", "waifu: ", &anime_file);
+            println!("Waifu removed");
+            },
+
+        "N\n" => println!("Waifu not removed."),
+        _ => println!("Option not valid\nOption: {}", question),
+    }  
+}
+// Delete an anime waifu in a non-interactive way END
+
