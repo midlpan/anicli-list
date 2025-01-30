@@ -495,6 +495,7 @@ fn reconfig_anime() -> Result<(), Box<dyn Error>> {
     let mut new_anime_episode = String::new();
     let mut new_anime_season  = String::new();
     let mut new_anime_waifu   = String::new();
+    let mut new_anime_rank    = String::new();
 
     // Set default path
     let default_path = set_default_path();
@@ -505,6 +506,7 @@ fn reconfig_anime() -> Result<(), Box<dyn Error>> {
     println!("[episode]");
     println!("[season]");
     println!("[waifu]");
+    println!("[rank]");
     // Select option
     print!("Option:");
     io::stdout().flush().unwrap();
@@ -675,6 +677,43 @@ fn reconfig_anime() -> Result<(), Box<dyn Error>> {
             reconf_anime("waifu: ", &new_anime_waifu, &anime_file);
             Ok(())
         }
+        // Reconfig anime rank
+        "rank\n" =>  {
+            print!("What is the anime name?:");
+            io::stdout().flush().unwrap();
+
+            //// user input
+            let _ = io::stdin()
+                .read_line(&mut anime_name)
+                .expect("Failed to read line");
+            let anime_name = replace_characters_to_files(&anime_name).replace("\n", "");
+
+            //// Set anime path
+            let anime_path = { default_path }.to_owned() + { &anime_name };
+            //// Set anime file
+            let anime_file = { anime_path.clone() }.to_owned() + "/anime.conf";
+            // find anime file
+            anime_file_exists(anime_file.clone());
+
+            //// user input
+            print!("What is the new anime rank?:");
+            io::stdout().flush().unwrap();
+
+            let _ = io::stdin()
+                .read_line(&mut new_anime_rank)
+                .expect("Failed to read line");
+            let new_anime_rank = new_anime_rank.replace("\n", "");
+            match new_anime_rank.trim().parse::<i32>() {
+                Ok(_) => (),
+                Err(_) => {
+                    println!("Letters in characters other than numbers are not allowed for rank");
+                    std::process::exit(1);
+                }
+            };
+
+            reconf_anime("rank: ", &new_anime_rank, &anime_file);
+            Ok(())
+        }
         _ => {
             let option = option.replace("\n", "");
             println!("Option: '{}' not exists", option);
@@ -770,6 +809,17 @@ fn reconfig_anime_nointeractive() {
         "--waifu" => {
             // Set new anime waifu
             reconf_anime("waifu: ", &new_info, &anime_file);
+        }
+        "--rank" => {
+            // Set new anime rank
+            match &new_info.trim().parse::<i32>() {
+                Ok(_) => (),
+                Err(_) => {
+                    println!("Letters in characters other than numbers are not allowed for rank");
+                    std::process::exit(1);
+                }
+            };
+            reconf_anime("rank: ", &new_info, &anime_file);
         }
         _ => println!("Argument not exist: {}", &args[3]),
     }
