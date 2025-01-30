@@ -1,42 +1,59 @@
-use std::path::Path;
-use std::error::Error;
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::io;
+use regex::Regex;
 use std::env;
+use std::error::Error;
 use std::fs;
 use std::fs::File;
+use std::fs::OpenOptions;
+use std::io;
 use std::io::prelude::*;
-use regex::Regex;
+use std::io::Write;
+use std::path::Path;
 
 fn main() {
     get_args(1);
 }
 
 
+
+
+
+
+
 fn get_args(number_ofargs: usize) {
     // args
     let args: Vec<String> = env::args().collect();
-    let argument = &args[number_ofargs].as_str();
+    let argument = &args[number_ofargs];
 
     // Get args
     match args[1].as_str() {
         "-h" | "--help" => get_help(),
-        "-add"  => add_anime(),
+        "-add" => add_anime(),
         "--add" => add_anime_nointeractive(),
-        "-del"  => del_anime(),
+        "-del" => del_anime(),
         "--del" => del_anime_nointeractive(),
         "-rconf" => reconfig_anime().expect("An error occurred reconfiguring"),
         "--rconf" => reconfig_anime_nointeractive(),
         "--list" => print_anime_list().expect("An error occurred showing the list"),
-        "--show" => print_specific_anime().expect("An error occurred showing a specific anime in the list"),
+        "--show" => {
+            print_specific_anime().expect("An error occurred showing a specific anime in the list")
+        }
         "-waifu" => add_waifu(),
         "--waifu" => add_waifu_nointeractive(),
         "-del-waifu" => del_waifu(),
         "--del-waifu" => del_waifu_nointeractive(),
-        _ => println!("Argument: {argument} not found")
+        "-add-rank" => add_rank(),
+        "--rank" => show_rank(),
+        "-del-rank" => del_rank(),
+        "--del-rank" => del_rank_nointeractive(),
+        "--add-rank" => add_rank_nointeractive(),
+        _ => println!("Argument: {argument} not found"),
     }
 }
+
+
+
+
+
 
 
 fn replace_characters_to_files(string: &str) -> String {
@@ -48,40 +65,49 @@ fn replace_characters_to_files(string: &str) -> String {
     string
 }
 
+
+
+
+
+
+
 fn set_default_path() -> String {
     // set default path var
     let mut db_conf_file = File::open("path.conf").expect("File path.conf not exists");
     let mut default_path = String::new();
 
-    db_conf_file.read_to_string(&mut default_path)
+    db_conf_file
+        .read_to_string(&mut default_path)
         .expect("Can not read the file: path.conf");
-    let default_path     = default_path.replace("\n", "");
+    default_path = default_path.replace("\n", "");
     anime_file_exists(default_path.clone());
     default_path
 }
 
-fn add_anime_file(name_arg: usize,new_line: usize,add_string: &str) {
+fn add_anime_file(name_arg: usize, new_line: usize, add_string: &str) {
     // args
     let args: Vec<String> = env::args().collect();
 
-
     // set anime name
-    let anime_name   = replace_characters_to_files(&args[name_arg]);
+    let anime_name = replace_characters_to_files(&args[name_arg]);
+    let mut default_path: String = set_default_path();
 
-    let default_path = set_default_path();
+    //// anime path
+    default_path = { default_path }.to_owned() + { &anime_name };
+    //// redirect the input for a file
+    // create the file anime.conf
+    let anime_file = { default_path }.to_owned() + "/anime.conf";
 
-        //// anime path
-        let default_path = {default_path}.to_owned()+{&anime_name};
-        //// redirect the input for a file
-        // create the file anime.conf
-        let anime_file = {default_path}.to_owned()+"/anime.conf";
-
-        if new_line == 1 {
-          write_in_file(anime_file,add_string);
-        } else if new_line == 0 {
-          write_in_file(anime_file,add_string);
+    if new_line == 1 {
+        write_in_file(anime_file, add_string);
+    } else if new_line == 0 {
+        write_in_file(anime_file, add_string);
     }
 }
+
+
+
+
 
 
 
@@ -94,6 +120,9 @@ fn get_help() {
              anicli-list --show  [ANIME NAME]
              anicli-list --waifu [WAIFU] --anime [ANIME NAME]
              anicli-list --del-waifu [ANIME NAME]
+             anicli-list --rank
+             anicli-list --del-rank [ANIME NAME]
+             anicli-list --add-rank [ANIME NAME] --rank [RANK]
     Options:
              --help | -h        Print this message
              -add               Add a anime
@@ -102,16 +131,18 @@ fn get_help() {
              --list             Print all animes in the list
              -waifu             Define your waifu
              -del-waifu         Delete a waifu
-             --del-waifu        Delete a waifu without interactive questions
+             --del-waifu        Delete a waifu without interactive question
              --show             Show the configuration of a specific anime
-             --add-rank         Rank an anime
-             --del-rank         Delete a rank
+             -add-rank          Rank an anime
+             -del-rank          Delete a rank
              -rank              Show the rank
 
              --add              Add an anime without interactive questions
              --del              Delete an anime without interactive questions
              --rconf            Reconfigure an anime without interactive questions
              --waifu            Add an anime waifu from no interactive questions
+             --add-rank         Add rank to an anime without interactive questions
+             --del-rank         Remove rank from an anime without interactive questions
     The --add Options:
              --status           Add an anime status without a interactive questions
              --ep               Add an anime episode without a interactive questions
@@ -122,321 +153,318 @@ fn get_help() {
              --ep               Reconfigure an anime episode without interactive questions
              --season           Reconfigure an anime season without interactive questions
              --waifu            Reconfigure an anime waifu without interactive questions
+             --rank             Reconfigure an anime rank without interactive questions
     WARNING: Only one argument can be used at a time";
     // Print help
     println!("{help}");
 }
 
-fn write_in_file(file: String,write: &str) {
-     //// redirect the input for a file
-        let mut edit_file = OpenOptions::new()
-            .write(true)
-            .append(true)
-            .open(file)
-            .unwrap();
-            if let Err(file) = writeln!(edit_file, "\n{}", write) {
+
+
+
+
+
+fn write_in_file(file: String, write: &str) {
+    //// redirect the input for a file
+    let mut edit_file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open(file)
+        .unwrap();
+    if let Err(file) = writeln!(edit_file, "{}", write) {
         eprintln!("Couldn't write to file: {}", file);
     }
 }
 
+
+
+
+
+
 fn add_anime() {
-
     // vars
-    let mut anime_name        = String::new();
-    let mut anime_status      = String::new();
-    let mut anime_episode     = String::new();
-    let mut anime_season      = String::new();
-    let mut _len              = String::new();
+    let mut anime_name     = String::new();
+    let mut anime_status   = String::new();
+    let mut anime_episode  = String::new();
+    let mut anime_season   = String::new();
+    let mut _len           = String::new();
 
-        // add a anime
-// anime name
-        print!("What is the anime name?:");
-        io::stdout().flush().unwrap();
+    // add a anime
+    // anime name
+    print!("What is the anime name?:");
+    io::stdout().flush().unwrap();
 
-        //// user input
-        let _ = io::stdin()
-            .read_line(&mut anime_name)
-            .expect("Failed to read line");
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut anime_name)
+        .expect("Failed to read line");
 
-        //// delete newlines
-        let mut len = anime_name.len();
-        anime_name.truncate(len - 1);
+    //// delete newlines
+    let mut len = anime_name.len();
+    anime_name.truncate(len - 1);
 
-        // Set default path
-        let default_path = set_default_path();
+    // Set default path
+    let default_path = set_default_path();
 
-        //// redirect the input for a file
-        //// anime path
-        // Create anime name
-        let path_anime_name = replace_characters_to_files(&anime_name.clone());
-        let anime_path = {default_path}.to_owned()+{&path_anime_name};
-        let _ = fs::create_dir(anime_path.clone());
+    //// redirect the input for a file
+    //// anime path
+    // Create anime name
+    let path_anime_name = replace_characters_to_files(&anime_name.clone());
+    let anime_path      = { default_path }.to_owned() + { &path_anime_name };
+    let _ = fs::create_dir(anime_path.clone());
 
-        // create the file anime.conf
-        let anime_name_compose = "name: ".to_owned()+{&anime_name};
-        let anime_file = {anime_path}.to_owned()+"/anime.conf";
+    // create the file anime.conf
+    let anime_name_compose = "name: ".to_owned() + { &anime_name };
+    let anime_file = { anime_path }.to_owned() + "/anime.conf";
 
+    let _ = File::create(anime_file.clone());
+    // redirect input
+    fs::write(anime_file.clone(), anime_name_compose).expect("The file anime.conf not exists");
+    // anime name end
 
-        let _ = File::create(anime_file.clone());
-        // redirect input
-        fs::write(anime_file.clone(), anime_name_compose)
-            .expect("The file anime.conf not exists");
-// anime name end
+    // anime status
+    print!("What is the anime status?:");
+    io::stdout().flush().unwrap();
 
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut anime_status)
+        .expect("Failed to read line");
 
+    //// delete newlines
+    len = anime_status.len();
+    anime_status.truncate(len - 1);
+    //// format anime status
+    anime_status = "\nstatus: ".to_owned() + &anime_status.replace("\n", "");
+    //// redirect the input for a file
+    write_in_file(anime_file.clone(), &anime_status);
 
-// anime status
-        print!("What is the anime status?:");
-        io::stdout().flush().unwrap();
+    // anime status end
 
-        //// user input
-        let _ = io::stdin()
-            .read_line(&mut anime_status)
-            .expect("Failed to read line");
+    // anime episode
+    print!("What is the anime episode?:");
+    io::stdout().flush().unwrap();
 
-        //// delete newlines
-        len = anime_status.len();
-        anime_status.truncate(len - 1);
-        //// format anime status
-        anime_status = "status: ".to_owned()+(&anime_status);
-        //// redirect the input for a file
-        write_in_file(anime_file.clone(),&anime_status);
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut anime_episode)
+        .expect("Failed to read line");
 
-// anime status end
+    //// delete newlines
+    len = anime_episode.len();
+    anime_episode.truncate(len - 1);
+    //// format anime episode
+    anime_episode = "episode: ".to_owned() + (&anime_episode);
+    //// redirect the input for a file
+    write_in_file(anime_file.clone(), &anime_episode);
 
+    // anime episode end
 
+    // anime season
+    print!("What is the anime season?:");
+    io::stdout().flush().unwrap();
 
-// anime episode
-        print!("What is the anime episode?:");
-        io::stdout().flush().unwrap();
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut anime_season)
+        .expect("Failed to read line");
 
-        //// user input
-        let _ = io::stdin()
-            .read_line(&mut anime_episode)
-            .expect("Failed to read line");
-
-        //// delete newlines
-        len = anime_episode.len();
-        anime_episode.truncate(len - 1);
-        //// format anime episode
-        anime_episode = "episode: ".to_owned()+(&anime_episode);
-        //// redirect the input for a file
-        write_in_file(anime_file.clone(),&anime_episode);
-
-// anime episode end
-
-
-
-// anime season
-        print!("What is the anime season?:");
-        io::stdout().flush().unwrap();
-
-        //// user input
-        let _ = io::stdin()
-            .read_line(&mut anime_season)
-            .expect("Failed to read line");
-
-        //// user input
-        len = anime_season.len();
-        anime_season.truncate(len - 1);
-        //// format anime season
-        anime_season = "season: ".to_owned()+(&anime_season);
-        //// redirect anime for a file
-        write_in_file(anime_file,&anime_season);
+    //// user input
+    len = anime_season.len();
+    anime_season.truncate(len - 1);
+    //// format anime season
+    anime_season = "season: ".to_owned() + (&anime_season);
+    //// redirect anime for a file
+    write_in_file(anime_file, &anime_season);
 }
 // anime season end
+
+
+
+
 
 fn add_anime_nointeractive() {
     // Set args
     let args: Vec<String> = env::args().collect();
     // Set anime name
-    let anime_name = &args[2];
+    let anime_name        = &args[2];
     // Set anime file
 
-        // Set default path
-        let default_path = set_default_path();
+    // Set default path
+    let default_path      = set_default_path();
 
+    //// redirect the input for a file
+    // Set path name
+    let anime_path_name   = replace_characters_to_files(&anime_name);
 
-        //// redirect the input for a file
-        // Set path name
-        let anime_path_name = replace_characters_to_files(&anime_name);
+    //// anime path
+    let anime_path = { default_path }.to_owned() + { &anime_path_name };
+    let _ = fs::create_dir(anime_path.clone());
 
-        //// anime path
-        let anime_path = {default_path}.to_owned()+{&anime_path_name};
-        let _ = fs::create_dir(anime_path.clone());
+    // create the file anime.conf
+    let anime_name_compose = "name: ".to_owned() + { &anime_name };
+    let anime_file = { anime_path }.to_owned() + "/anime.conf";
 
-        // create the file anime.conf
-        let anime_name_compose = "name: ".to_owned()+{&anime_name};
-        let anime_file = {anime_path}.to_owned()+"/anime.conf";
+    let _ = File::create(anime_file.clone());
+    // redirect input
+    fs::write(anime_file.clone(), anime_name_compose).expect("The file anime.conf not exist");
 
-        let _ = File::create(anime_file.clone());
-        // redirect input
-        fs::write(anime_file.clone(), anime_name_compose)
-            .expect("The file anime.conf not exist");
+    // anime name nointeractive end
 
-// anime name nointeractive end
-
-
-// anime status nointeractive
-     // args check
-     match args[3].as_str() {
+    // anime status nointeractive
+    // args check
+    match args[3].as_str() {
         "--status" => status_anime_nointeractive(),
-        _ => println!("Argument: {} not found", &args[3].as_str())
+        _ => println!("Argument: {} not found", &args[3].as_str()),
+    }
 
-}
-        fn status_anime_nointeractive() {
+    fn status_anime_nointeractive() {
         // set args
         let args: Vec<String> = env::args().collect();
         // set anime status
-        let anime_status = &args[4];
+        let anime_status      = &args[4];
         //// format anime status
-        let anime_status = "status: ".to_owned()+{&anime_status};
+        let anime_status      = "\nstatus: ".to_owned() + { &anime_status };
 
         //// redirect the input for a file
-        add_anime_file(2,1, &anime_status);
+        add_anime_file(2, 1, &anime_status);
     }
-// anime status nointeractive end
+    // anime status nointeractive end
 
-// anime episode nointeractive
+    // anime episode nointeractive
     match args[5].as_str() {
         "--ep" => add_anime_episode_nointeractive(),
-        _ => println!("Argument: {} not found", &args[5].as_str())
-}
+        _ => println!("Argument: {} not found", &args[5].as_str()),
+    }
 
-        fn add_anime_episode_nointeractive() {
+    fn add_anime_episode_nointeractive() {
         // set args
         let args: Vec<String> = env::args().collect();
         // set anime episode
-        let anime_episode = &args[6];
+        let anime_episode     = &args[6];
 
         // format anime episode
-        let anime_episode = "episode: ".to_owned()+{&anime_episode};
+        let anime_episode     = "episode: ".to_owned() + { &anime_episode };
 
         //// redirect the input for a file
-        add_anime_file(2,0, &anime_episode);
-        }
-// anime episode nointeractive end
+        add_anime_file(2, 1, &anime_episode);
+    }
+    // anime episode nointeractive end
 
-// anime season nointeractive
+    // anime season nointeractive
     match args[7].as_str() {
         "--season" => add_anime_season_nointeractive(),
-        _ => println!("Argument: {} not found", &args[7].as_str())
-}
+        _ => println!("Argument: {} not found", &args[7].as_str()),
+    }
 
-        fn add_anime_season_nointeractive() {
+    fn add_anime_season_nointeractive() {
         // set args
         let args: Vec<String> = env::args().collect();
 
-
         // set anime season
-        let anime_season = &args[8];
+        let anime_season      = &args[8];
 
         // format anime season
-        let anime_season = "season: ".to_owned()+{&anime_season};
+        let anime_season      = "season: ".to_owned() + { &anime_season };
 
         //// redirect the input for a file
-        add_anime_file(2,0, &anime_season)
-        }
-// anime season nointeractive end
+        add_anime_file(2, 0, &anime_season)
+    }
+    // anime season nointeractive end
 }
-
-
-
-
 
 // DELETE A ANIME
 
+
+
+
+
 fn del_anime() {
-        // variables
-        let mut anime_name = String::new();
-        let mut question   = String::new();
+    // variables
+    let mut anime_name = String::new();
+    let mut question   = String::new();
 
-        print!("What is the anime name?:");
-        io::stdout().flush().unwrap();
+    print!("What is the anime name?:");
+    io::stdout().flush().unwrap();
 
-        //// user input
-        let _ = io::stdin()
-            .read_line(&mut anime_name)
-            .expect("Failed to read line");
-        let anime_name = replace_characters_to_files(&anime_name);
-        //// Set anime file
-        // Set default path
-        let default_path    = set_default_path();
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut anime_name)
+        .expect("Failed to read line");
+    let anime_name   = replace_characters_to_files(&anime_name);
+    //// Set anime file
+    // Set default path
+    let default_path = set_default_path();
 
-        // Set anime path
-        //// anime path
-        let anime_path = {default_path}.to_owned()+{&anime_name};
+    // Set anime path
+    //// anime path
+    let anime_path = { default_path }.to_owned() + { &anime_name };
+    let anime_file = anime_path.replace("\n", "");
 
-        let anime_file = anime_path.replace("\n", "");
+    anime_file_exists(anime_file.clone());
 
-        anime_file_exists(anime_file.clone());
+    //// Do you really want to remove the anime?
+    print!("Do you really want to remove the anime[Y|N]?:");
+    io::stdout().flush().unwrap();
 
-        //// Do you really want to remove the anime?
-        print!("Do you really want to remove the anime[Y|N]?:");
-        io::stdout().flush().unwrap();
+    // user input
+    let _ = io::stdin()
+        .read_line(&mut question)
+        .expect("Failed to read line");
 
-        // user input
-        let _ = io::stdin()
-            .read_line(&mut question)
-            .expect("Failed to read line");
-
-        let question = question.as_str();
+    let question = question.as_str();
 
     match question {
-        "Y\n"  => {
-            match fs::remove_dir_all(anime_file) {
-                Ok(_) => println!("Anime has be deleted"),
-                Err(e) => println!("An error occurred while removing the anime: {}", e),
-            }
+        "Y\n" => match fs::remove_dir_all(anime_file) {
+            Ok(_) => println!("Anime has be deleted"),
+            Err(e) => println!("An error occurred while removing the anime: {}", e),
         },
         "N\n" => println!("Anime not removed."),
         _ => println!("Option not valid\nOption: {}", question),
     }
 }
-
-
 
 // Delete anime non-interactively
 
+
+
+
 fn del_anime_nointeractive() {
-        // Set question var
-        let mut question          = String::new();
+    // Set question var
+    let mut question = String::new();
 
-        //// Set args
-        let args: Vec<String> = env::args().collect();
-        // Set anime name
-        let anime_name        = &args[2].as_str();
-        let anime_name        = replace_characters_to_files(&anime_name);
-        //// Set anime file
+    //// Set args
+    let args: Vec<String> = env::args().collect();
+    // Set anime name
+    let anime_name = &args[2].as_str();
+    let anime_name = replace_characters_to_files(&mut &anime_name);
+    //// Set anime file
 
-        // Set default path
-        let default_path    = set_default_path();
+    // Set default path
+    let default_path = set_default_path();
 
-        // Set anime path
-        //// anime path
-        let anime_path = {default_path}.to_owned()+{&anime_name};
+    // Set anime path
+    //// anime path
+    let anime_path = { default_path }.to_owned() + { &anime_name };
+    let anime_file = anime_path.replace("\n", "");
 
-        let anime_file = anime_path.replace("\n", "");
+    anime_file_exists(anime_file.clone());
 
-        anime_file_exists(anime_file.clone());
+    //// Do you really want to remove the anime?
+    print!("Do you really want to remove the anime[Y|N]?:");
+    io::stdout().flush().unwrap();
 
-        //// Do you really want to remove the anime?
-        print!("Do you really want to remove the anime[Y|N]?:");
-        io::stdout().flush().unwrap();
+    // user input
+    let _ = io::stdin()
+        .read_line(&mut question)
+        .expect("Failed to read line");
 
-        // user input
-        let _ = io::stdin()
-            .read_line(&mut question)
-            .expect("Failed to read line");
-
-        let question = question.as_str();
+    let question = question.as_str();
 
     match question {
-        "Y\n"  => {
-            match fs::remove_dir_all(anime_file) {
-                Ok(_) => println!("Anime has be deleted"),
-                Err(e) => println!("An error occurred while removing the anime: {}", e),
-            }
+        "Y\n" => match fs::remove_dir_all(anime_file) {
+            Ok(_) => println!("Anime has be deleted"),
+            Err(e) => println!("An error occurred while removing the anime: {}", e),
         },
         "N\n" => println!("Anime not removed."),
         _ => println!("Option not valid\nOption: {}", question),
@@ -444,7 +472,11 @@ fn del_anime_nointeractive() {
 }
 
 
-fn replace_string_infile(new_string: &str,old_string: &str,file: &str) -> io::Result<()> {
+
+
+
+
+fn replace_string_infile(new_string: &str, old_string: &str, file: &str) -> io::Result<()> {
     // Read the file
     let content = fs::read_to_string(file)?;
     // Replace the string
@@ -458,320 +490,372 @@ fn replace_string_infile(new_string: &str,old_string: &str,file: &str) -> io::Re
 
 
 
-fn reconfig_anime() -> Result<(), Box<dyn Error>>  {
-        // Set default vars
-        let mut new_anime_status   = String::new();
-        let mut anime_name         = String::new();
-        let mut option             = String::new();
-        let mut old_anime_name     = String::new();
-        let mut new_anime_name     = String::new();
-        let mut new_anime_episode  = String::new();
-        let mut new_anime_season   = String::new();
-        let mut new_anime_waifu    = String::new();
-
-        // Set default path
-        let default_path = set_default_path();
-
-        // Print options
-        println!("[name]");
-        println!("[status]");
-        println!("[episode]");
-        println!("[season]");
-        println!("[waifu]");
-        // Select option
-        print!("Option:");
-        io::stdout().flush().unwrap();
-
-        //// user input
-        let _ = io::stdin()
-            .read_line(&mut option)
-            .expect("Failed to read line");
 
 
-        match option.as_str() {
-            // Reconfig anime name
-            "name\n" => {
-                        print!("What is the anime name?:");
-                        io::stdout().flush().unwrap();
 
-                        //// user input
-                        let _ = io::stdin()
-                            .read_line(&mut old_anime_name)
-                            .expect("Failed to read line");
-                        let old_anime_name = replace_characters_to_files(&old_anime_name)
-                            .replace("\n", "");
-                        //// anime path
-                        let old_anime_path = {default_path.clone()}.to_owned()+{&old_anime_name};
+fn reconfig_anime() -> Result<(), Box<dyn Error>> {
+    // Set default vars
+    let mut new_anime_status  = String::new();
+    let mut anime_name        = String::new();
+    let mut option            = String::new();
+    let mut old_anime_name    = String::new();
+    let mut new_anime_name    = String::new();
+    let mut new_anime_episode = String::new();
+    let mut new_anime_season  = String::new();
+    let mut new_anime_waifu   = String::new();
+    let mut new_anime_rank    = String::new();
 
-                        //// Check if anime path exists
-                        anime_file_exists(old_anime_path.clone());
+    // Set default path
+    let default_path = set_default_path();
 
-                        //// user input
-                        print!("What is the new anime name?:");
-                        io::stdout().flush().unwrap();
-                        let _ = io::stdin()
-                            .read_line(&mut new_anime_name)
-                            .expect("Failed to read line");
-                        let new_anime_name = replace_characters_to_files(&new_anime_name)
-                            .replace("\n", "");
+    // Print options
+    println!("[name]");
+    println!("[status]");
+    println!("[episode]");
+    println!("[season]");
+    println!("[waifu]");
+    println!("[rank]");
+    // Select option
+    print!("Option:");
+    io::stdout().flush().unwrap();
 
-                        // New anime path and file
-                        let new_anime_path = {default_path}.to_owned()+{&new_anime_name};
-                        let new_anime_file = {new_anime_path.clone()}.to_owned()+"/anime.conf";
-                        // Rename the old anime path
-                        let _ = fs::rename(old_anime_path, new_anime_path);
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut option)
+        .expect("Failed to read line");
 
-                        // Format new_anime_name and old_anime_name
-                        let new_anime_name = "name: ".to_owned()+{&new_anime_name};
-                        let old_anime_name = "name: ".to_owned()+{&old_anime_name};
+    match option.as_str() {
+        // Reconfig anime name
+        "name\n" => {
+            print!("What is the anime name?:");
+            io::stdout().flush().unwrap();
 
-                        // Config variables
-                        let new_anime_name = new_anime_name.as_str();
-                        let new_anime_file = new_anime_file.as_str();
-                        let old_anime_name = old_anime_name.as_str();
+            //// user input
+            let _ = io::stdin()
+                .read_line(&mut old_anime_name)
+                .expect("Failed to read line");
+            let old_anime_name = replace_characters_to_files(&old_anime_name).replace("\n", "");
+            //// anime path
+            let old_anime_path = { default_path.clone() }.to_owned() + { &old_anime_name };
 
-                        // replace
-                        let _ = replace_string_infile(&new_anime_name, &old_anime_name, &new_anime_file);
-                        Ok(())
-        },
+            //// Check if anime path exists
+            anime_file_exists(old_anime_path.clone());
+
+            //// user input
+            print!("What is the new anime name?:");
+            io::stdout().flush().unwrap();
+            let _ = io::stdin()
+                .read_line(&mut new_anime_name)
+                .expect("Failed to read line");
+            let new_anime_name = replace_characters_to_files(&new_anime_name).replace("\n", "");
+
+            // New anime path and file
+            let new_anime_path = { default_path }.to_owned() + { &new_anime_name };
+            let new_anime_file = { new_anime_path.clone() }.to_owned() + "/anime.conf";
+            // Rename the old anime path
+            let _ = fs::rename(old_anime_path, new_anime_path);
+
+            // Format new_anime_name and old_anime_name
+            let new_anime_name = "name: ".to_owned() + { &new_anime_name };
+            let old_anime_name = "name: ".to_owned() + { &old_anime_name };
+
+            // Config variables
+            let new_anime_name = new_anime_name.as_str();
+            let new_anime_file = new_anime_file.as_str();
+            let old_anime_name = old_anime_name.as_str();
+
+            // replace
+            let _ = replace_string_infile(&new_anime_name, &old_anime_name, &new_anime_file);
+            Ok(())
+        }
         // Reconfig anime status
-            "status\n" => {
-                        print!("What is the anime name?:");
-                        io::stdout().flush().unwrap();
+        "status\n" => {
+            print!("What is the anime name?:");
+            io::stdout().flush().unwrap();
 
-                        //// user input
-                        let _ = io::stdin()
-                            .read_line(&mut anime_name)
-                            .expect("Failed to read line");
-                        let anime_name = replace_characters_to_files(&anime_name)
-                            .replace("\n", "");
-                        //// Set anime path
-                        let anime_path     = {default_path}.to_owned()+{&anime_name};
-                        //// Set anime file
-                        let anime_file     = {anime_path.clone()}.to_owned()+"/anime.conf";
-                        // find anime file
-                        anime_file_exists(anime_file.clone());
+            //// user input
+            let _ = io::stdin()
+                .read_line(&mut anime_name)
+                .expect("Failed to read line");
+            let anime_name = replace_characters_to_files(&anime_name).replace("\n", "");
+            //// Set anime path
+            let anime_path = { default_path }.to_owned() + { &anime_name };
+            //// Set anime file
+            let anime_file = { anime_path.clone() }.to_owned() + "/anime.conf";
+            // find anime file
+            anime_file_exists(anime_file.clone());
 
-                        //// user input
-                        print!("What is the new anime status?:");
-                        io::stdout().flush().unwrap();
+            //// user input
+            print!("What is the new anime status?:");
+            io::stdout().flush().unwrap();
 
-                        let _ = io::stdin()
-                            .read_line(&mut new_anime_status)
-                            .expect("Failed to read line");
+            let _ = io::stdin()
+                .read_line(&mut new_anime_status)
+                .expect("Failed to read line");
 
-                        reconf_anime("status: ", &new_anime_status, &anime_file);
-                        Ok(())
-        },
+            reconf_anime("status: ", &new_anime_status, &anime_file);
+            Ok(())
+        }
         // Reconfig anime episode
-            "episode\n" => {
+        "episode\n" => {
+            print!("What is the anime name?:");
+            io::stdout().flush().unwrap();
 
-                        print!("What is the anime name?:");
-                        io::stdout().flush().unwrap();
+            //// user input
+            let _ = io::stdin()
+                .read_line(&mut anime_name)
+                .expect("Failed to read line");
+            let anime_name = replace_characters_to_files(&anime_name).replace("\n", "");
 
-                        //// user input
-                        let _ = io::stdin()
-                            .read_line(&mut anime_name)
-                            .expect("Failed to read line");
-                        let anime_name = replace_characters_to_files(&anime_name)
-                            .replace("\n", "");
+            //// Set anime path
+            let anime_path = { default_path }.to_owned() + { &anime_name };
+            //// Set anime file
+            let anime_file = { anime_path.clone() }.to_owned() + "/anime.conf";
+            // find anime file
+            anime_file_exists(anime_file.clone());
 
-                        //// Set anime path
-                        let anime_path     = {default_path}.to_owned()+{&anime_name};
-                        //// Set anime file
-                        let anime_file     = {anime_path.clone()}.to_owned()+"/anime.conf";
-                        // find anime file
-                        anime_file_exists(anime_file.clone());
+            //// user input
+            print!("What is the new anime episode?:");
+            io::stdout().flush().unwrap();
 
-                        //// user input
-                        print!("What is the new anime episode?:");
-                        io::stdout().flush().unwrap();
+            let _ = io::stdin()
+                .read_line(&mut new_anime_episode)
+                .expect("Failed to read line");
+            let new_anime_episode = new_anime_episode.replace("\n", "");
 
-                        let _ = io::stdin()
-                            .read_line(&mut new_anime_episode)
-                            .expect("Failed to read line");
-                        let new_anime_episode = new_anime_episode.replace("\n", "");
+            reconf_anime("episode: ", &new_anime_episode, &anime_file);
 
-                        reconf_anime("episode: ", &new_anime_episode, &anime_file);
-
-                        Ok(())
-        },
+            Ok(())
+        }
         // Reconfig anime season
-            "season\n" => {
+        "season\n" => {
+            print!("What is the anime name?:");
+            io::stdout().flush().unwrap();
 
-                        print!("What is the anime name?:");
-                        io::stdout().flush().unwrap();
+            //// user input
+            let _ = io::stdin()
+                .read_line(&mut anime_name)
+                .expect("Failed to read line");
+            let anime_name = replace_characters_to_files(&anime_name).replace("\n", "");
 
-                        //// user input
-                        let _ = io::stdin()
-                            .read_line(&mut anime_name)
-                            .expect("Failed to read line");
-                        let anime_name = replace_characters_to_files(&anime_name)
-                            .replace("\n", "");
+            //// Set anime path
+            let anime_path = { default_path }.to_owned() + { &anime_name };
+            //// Set anime file
+            let anime_file = { anime_path.clone() }.to_owned() + "/anime.conf";
+            // find anime file
+            anime_file_exists(anime_file.clone());
 
-                        //// Set anime path
-                        let anime_path     = {default_path}.to_owned()+{&anime_name};
-                        //// Set anime file
-                        let anime_file     = {anime_path.clone()}.to_owned()+"/anime.conf";
-                        // find anime file
-                        anime_file_exists(anime_file.clone());
+            //// user input
+            print!("What is the new anime season?:");
+            io::stdout().flush().unwrap();
 
-                        //// user input
-                        print!("What is the new anime season?:");
-                        io::stdout().flush().unwrap();
-
-                        let _ = io::stdin()
-                            .read_line(&mut new_anime_season)
-                            .expect("Failed to read line");
-                        let new_anime_season = new_anime_season.replace("\n", "");
-                        reconf_anime("season: ", &new_anime_season, &anime_file);
-                        Ok(())
-    },
+            let _ = io::stdin()
+                .read_line(&mut new_anime_season)
+                .expect("Failed to read line");
+            let new_anime_season = new_anime_season.replace("\n", "");
+            reconf_anime("season: ", &new_anime_season, &anime_file);
+            Ok(())
+        }
         // Reconfig anime waifu UwU
-            "waifu\n" => {
+        "waifu\n" => {
+            print!("What is the anime name?:");
+            io::stdout().flush().unwrap();
 
-                        print!("What is the anime name?:");
-                        io::stdout().flush().unwrap();
+            //// user input
+            let _ = io::stdin()
+                .read_line(&mut anime_name)
+                .expect("Failed to read line");
+            let anime_name = replace_characters_to_files(&anime_name).replace("\n", "");
 
-                        //// user input
-                        let _ = io::stdin()
-                            .read_line(&mut anime_name)
-                            .expect("Failed to read line");
-                        let anime_name = replace_characters_to_files(&anime_name)
-                            .replace("\n", "");
+            //// Set anime path
+            let anime_path = { default_path }.to_owned() + { &anime_name };
+            //// Set anime file
+            let anime_file = { anime_path.clone() }.to_owned() + "/anime.conf";
+            // find anime file
+            anime_file_exists(anime_file.clone());
 
-                        //// Set anime path
-                        let anime_path     = {default_path}.to_owned()+{&anime_name};
-                        //// Set anime file
-                        let anime_file     = {anime_path.clone()}.to_owned()+"/anime.conf";
-                        // find anime file
-                        anime_file_exists(anime_file.clone());
+            //// user input
+            print!("What is the new anime waifu UwU?:");
+            io::stdout().flush().unwrap();
 
-                        //// user input
-                        print!("What is the new anime waifu UwU?:");
-                        io::stdout().flush().unwrap();
+            let _ = io::stdin()
+                .read_line(&mut new_anime_waifu)
+                .expect("Failed to read line");
+            let new_anime_waifu = new_anime_waifu.replace("\n", "");
+            reconf_anime("waifu: ", &new_anime_waifu, &anime_file);
+            Ok(())
+        }
+        // Reconfig anime rank
+        "rank\n" =>  {
+            print!("What is the anime name?:");
+            io::stdout().flush().unwrap();
 
-                        let _ = io::stdin()
-                            .read_line(&mut new_anime_waifu)
-                            .expect("Failed to read line");
-                        let new_anime_waifu = new_anime_waifu.replace("\n", "");
-                        reconf_anime("waifu: ", &new_anime_waifu, &anime_file);
-                        Ok(())
-    },
+            //// user input
+            let _ = io::stdin()
+                .read_line(&mut anime_name)
+                .expect("Failed to read line");
+            let anime_name = replace_characters_to_files(&anime_name).replace("\n", "");
+
+            //// Set anime path
+            let anime_path = { default_path }.to_owned() + { &anime_name };
+            //// Set anime file
+            let anime_file = { anime_path.clone() }.to_owned() + "/anime.conf";
+            // find anime file
+            anime_file_exists(anime_file.clone());
+
+            //// user input
+            print!("What is the new anime rank?:");
+            io::stdout().flush().unwrap();
+
+            let _ = io::stdin()
+                .read_line(&mut new_anime_rank)
+                .expect("Failed to read line");
+            let new_anime_rank = new_anime_rank.replace("\n", "");
+            match new_anime_rank.trim().parse::<i32>() {
+                Ok(_) => (),
+                Err(_) => {
+                    println!("Letters in characters other than numbers are not allowed for rank");
+                    std::process::exit(1);
+                }
+            };
+
+            reconf_anime("rank: ", &new_anime_rank, &anime_file);
+            Ok(())
+        }
         _ => {
-                let option = option.replace("\n", "");
-                println!("Option: '{}' not exists", option);
-                Ok(())
-    },
-  }
+            let option = option.replace("\n", "");
+            println!("Option: '{}' not exists", option);
+            Ok(())
+        }
+    }
 }
 
-fn reconf_anime(regex: &str,input: &str,file: &str) {
-                 // Set old_anime status
-                 //// Set regex
-                 let find     = regex;
-                 let regex    = Regex::new(regex).unwrap();
-                 // Format variables
-                 let input    = find.to_owned()+input;
-                 let input    = input.as_str();
 
-                 let _ = grep_string_in_file_and_replace(regex, file, input);
+
+
+
+
+fn reconf_anime(regex: &str, input: &str, file: &str) {
+    // Set old_anime status
+    //// Set regex
+    let find  = regex;
+    let regex = Regex::new(regex).unwrap();
+    // Format variables
+    let input = find.to_owned() + input;
+    let input = input.as_str();
+
+    let _ = grep_string_in_file_and_replace(regex, file, input);
 }
+
+
+
+
 
 
 // Reconfig anime in a no interactive form
 fn reconfig_anime_nointeractive() {
+    // Set args
+    let args: Vec<String> = env::args().collect();
+    let new_info          = &args[4].as_str();
 
-        // Set args
-        let args: Vec<String> = env::args().collect();
-        let new_info          = &args[4].as_str();
+    // Set default path
+    let default_path = set_default_path();
 
-        // Set default path
-        let default_path = set_default_path();
+    // Set anime name
+    let anime_name   = replace_characters_to_files(&args[2]);
 
-        // Set anime name
-        let anime_name   = replace_characters_to_files(&args[2]);
+    // Set anime file
+    //// Set anime path
+    let anime_path = { default_path.clone() }.to_owned() + { &anime_name };
 
-        // Set anime file
-        //// Set anime path
-        let anime_path   = {default_path.clone()}.to_owned()+{&anime_name};
+    //// Check if anime path exists
+    anime_file_exists(anime_path.clone());
 
-        //// Check if anime path exists
-        anime_file_exists(anime_path.clone());
+    //// Set anime file
+    let anime_file = { anime_path.clone() }.to_owned() + "/anime.conf";
 
-        //// Set anime file
-        let anime_file   = {anime_path.clone()}.to_owned()+"/anime.conf";
+    // Reconfig anime status without interaction
+    match args[3].as_str() {
+        "--name" => {
+            let old_anime_name = anime_name;
+            let mut old_anime_name = replace_characters_to_files(old_anime_name.as_str());
+            let mut new_anime_name = replace_characters_to_files(&args[4]);
 
+            //// anime path
+            let old_anime_path = { default_path.clone() }.to_owned() + { &old_anime_name };
 
+            // New anime path and file
+            let new_anime_path = { default_path }.to_owned() + { &new_anime_name };
+            let new_anime_file = { new_anime_path.clone() }.to_owned() + "/anime.conf";
+            // Rename the old anime path
+            let _ = fs::rename(old_anime_path, new_anime_path);
 
-        // Reconfig anime status without interaction
-        match args[3].as_str() {
-            "--name"    => {
-                let old_anime_name = anime_name;
-                let old_anime_name = replace_characters_to_files(old_anime_name.as_str());
-                let new_anime_name = replace_characters_to_files(&args[4]);
+            // Format new_anime_name and old_anime_name
+            new_anime_name = "name: ".to_owned() + { &new_anime_name };
+            old_anime_name = "name: ".to_owned() + { &old_anime_name };
 
-                //// anime path
-                let old_anime_path = {default_path.clone()}.to_owned()+{&old_anime_name};
+            // Config variables
+            let new_anime_name = new_anime_name.as_str();
+            let new_anime_file = new_anime_file.as_str();
+            let old_anime_name = old_anime_name.as_str();
 
-
-                // New anime path and file
-                let new_anime_path = {default_path}.to_owned()+{&new_anime_name};
-                let new_anime_file = {new_anime_path.clone()}.to_owned()+"/anime.conf";
-                // Rename the old anime path
-                let _ = fs::rename(old_anime_path, new_anime_path);
-
-                // Format new_anime_name and old_anime_name
-                let new_anime_name = "name: ".to_owned()+{&new_anime_name};
-                let old_anime_name = "name: ".to_owned()+{&old_anime_name};
-
-                // Config variables
-                let new_anime_name = new_anime_name.as_str();
-                let new_anime_file = new_anime_file.as_str();
-                let old_anime_name = old_anime_name.as_str();
-
-                // replace
-                let _ = replace_string_infile(&new_anime_name, &old_anime_name, &new_anime_file);
-        },
-         "--status"  => {
-                 // Set new anime status
-                 reconf_anime("status: ", &new_info, &anime_file);
-         },
-         "--ep" => {
-                 // Set new anime seaspm
-                 reconf_anime("episode: ", &new_info, &anime_file);
-         },
-         "--season" => {
-                 // Set new anime season
-                 reconf_anime("season: ", &new_info, &anime_file);
-
-         },
-         "--waifu"  => {
-                 // Set new anime waifu
-                 reconf_anime("waifu: ", &new_info, &anime_file);
-         },
-         _ => println!("Argument not exist: {}", &args[3]),
+            // replace
+            let _ = replace_string_infile(&new_anime_name, &old_anime_name, &new_anime_file);
+        }
+        "--status" => {
+            // Set new anime status
+            reconf_anime("status: ", &new_info, &anime_file);
+        }
+        "--ep" => {
+            // Set new anime seaspm
+            reconf_anime("episode: ", &new_info, &anime_file);
+        }
+        "--season" => {
+            // Set new anime season
+            reconf_anime("season: ", &new_info, &anime_file);
+        }
+        "--waifu" => {
+            // Set new anime waifu
+            reconf_anime("waifu: ", &new_info, &anime_file);
+        }
+        "--rank" => {
+            // Set new anime rank
+            match &new_info.trim().parse::<i32>() {
+                Ok(_) => (),
+                Err(_) => {
+                    println!("Letters in characters other than numbers are not allowed for rank");
+                    std::process::exit(1);
+                }
+            };
+            reconf_anime("rank: ", &new_info, &anime_file);
+        }
+        _ => println!("Argument not exist: {}", &args[3]),
     }
 }
 
 // Reconfig anime in a no interactive form end
 
+
+
+
 fn anime_file_exists(file: String) {
-//// Check if the file exist
-match fs::exists(file) {
-        Ok(true) => print!(""),
+    //// Check if the file exist
+    match fs::exists(file) {
+        Ok(true) => (),
         Ok(false) => {
-                            println!("Anime file does not exist");
-                            std::process::exit(1);
-                     },
+            println!("Anime file does not exist");
+            std::process::exit(1);
+        }
         Err(e) => println!("An error occurred when checking the anime file: {}", e),
-     }
+    }
 }
 
 
 
-fn grep_string_in_file_and_replace(regex: Regex, file: &str, new_string: &str) -> io::Result<()> {
 
+
+
+fn grep_string_in_file_and_replace(regex: Regex, file: &str, new_string: &str) -> io::Result<()> {
     // Format vars
     //// set new string
     let new_string = &new_string;
@@ -783,15 +867,17 @@ fn grep_string_in_file_and_replace(regex: Regex, file: &str, new_string: &str) -
 
     // Find string
     let reader = io::BufReader::new(file);
-                for (_index, line) in reader.lines().enumerate() {
-                    let line = line?;
-                        if regex.clone().is_match(&line) {
-                            let old_string = &line;
-                            let _ = replace_string_infile(new_string, old_string, anime_file);
-                        }
-                }
+    for (_index, line) in reader.lines().enumerate() {
+        let line = line?;
+        if regex.clone().is_match(&line) {
+            let old_string = &line;
+            let _ = replace_string_infile(new_string, old_string, anime_file);
+        }
+    }
     Ok(())
 }
+
+
 
 
 
@@ -799,42 +885,51 @@ fn grep_string_in_file_and_replace(regex: Regex, file: &str, new_string: &str) -
 // Print Anime list
 fn print_anime_list() -> io::Result<()> {
     //// format default_path
-    let default_path    = set_default_path();
+    let default_path = set_default_path();
     let _ = show_subdirs(&default_path);
     Ok(())
 }
 
-fn show_subdirs(default_path: &str) -> io::Result<()>  {
+
+
+
+
+
+fn show_subdirs(default_path: &str) -> io::Result<()> {
     // Read Directory
     let read_path = fs::read_dir(default_path)?;
 
     for read_paths in read_path {
-        let read_paths  = read_paths?;
+        let read_paths = read_paths?;
         let view_path  = read_paths.path();
 
         if view_path.is_dir() {
             let _ = show_subdirs(view_path.to_str().unwrap())?;
             let _ = show_files_in_subdirs(&view_path);
-        } else if view_path.is_file(){
+        } else if view_path.is_file() {
             let _ = show_files_in_subdirs(&view_path);
         }
-
     }
     Ok(())
 }
+
+
+
+
+
 
 fn show_files_in_subdirs(default_path: &std::path::Path) -> io::Result<()> {
     let mut open_path = fs::File::open(default_path)?;
     let mut content   = String::new();
     let _ = open_path.read_to_string(&mut content);
     // A good CLI
-    a_good_presentation(content);
+    a_good_presentation(content.clone());
 
     Ok(())
 }
 // Print anime list end
 
-
+// A good presentation
 fn a_good_presentation(content: String) {
     // Make a good CLI
     // Create a border
@@ -843,14 +938,23 @@ fn a_good_presentation(content: String) {
     // Show top border
     println!("{}", border_char.to_string().repeat(border_lenght));
     // Create a border behind the content
-    let content = content.replace("name: ", "𝌆 name: ").replace("status: ", "𝌆 status: ").replace("episode: ", "𝌆 episode: ").replace("season: ", "𝌆 season: ").replace("\n", "").replace("𝌆 status: ", "\n𝌆 status: ").replace("𝌆 episode: ", "\n𝌆 episode: ").replace("𝌆 season: ", "\n𝌆 season: ").replace("waifu: ", "\n𝌆 waifu: ");
+    let content = content
+        .replace("name: ", "𝌆 name: ")
+        .replace("status: ", "𝌆 status: ")
+        .replace("episode: ", "𝌆 episode: ")
+        .replace("season: ", "𝌆 season: ")
+        .replace("\n", "")
+        .replace("𝌆 status: ", "\n𝌆 status: ")
+        .replace("𝌆 episode: ", "\n𝌆 episode: ")
+        .replace("𝌆 season: ", "\n𝌆 season: ")
+        .replace("waifu: ", "\n𝌆 waifu: ")
+        .replace("rank: ", "\n𝌆 rank: ");
     // Print the content
     println!("{}", content);
     // Show ending edge
     println!("{}", border_char.to_string().repeat(border_lenght));
-
-
 }
+// A good presentation END
 
 // Print a scpecific anime
 fn print_specific_anime() -> io::Result<()> {
@@ -858,15 +962,15 @@ fn print_specific_anime() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
 
     // Set default path
-    let default_path    = set_default_path();
+    let default_path      = set_default_path();
 
     //// Set selected anime
-    let selected_anime = &args[2];
-    let selected_anime = replace_characters_to_files(&selected_anime);
-    let selected_anime = selected_anime.to_owned().to_owned()+"/";
+    let selected_anime     = &args[2];
+    let mut selected_anime = replace_characters_to_files(&selected_anime);
+    selected_anime         = selected_anime.to_owned().to_owned() + "/";
     //// Find anime file
-    let anime_path     = default_path.to_owned()+&selected_anime;
-    let anime_file     = anime_path.to_owned()+"/anime.conf";
+    let anime_path = default_path.to_owned() + &selected_anime;
+    let anime_file = anime_path.to_owned() + "/anime.conf";
     anime_file_exists(anime_file.clone());
 
     // Read the file
@@ -881,57 +985,58 @@ fn print_specific_anime() -> io::Result<()> {
 
 
 
+
+
 // Add an anime waifu
 fn add_waifu() {
-// Set default vars
+    // Set default vars
     let mut anime_name  = String::new();
     let mut anime_waifu = String::new();
     // anime name
-        print!("What is the anime name?:");
-        io::stdout().flush().unwrap();
+    print!("What is the anime name?:");
+    io::stdout().flush().unwrap();
 
-        //// user input
-        let _ = io::stdin()
-            .read_line(&mut anime_name)
-            .expect("Failed to read line");
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut anime_name)
+        .expect("Failed to read line");
 
-        anime_name = replace_characters_to_files(&anime_name);
-        //// delete newlines
-        let len = anime_name.len();
-        anime_name.truncate(len - 1);
+    anime_name = replace_characters_to_files(&anime_name);
 
+    //// delete newlines
+    let len = anime_name.len();
+    anime_name.truncate(len - 1);
 
-        // Set default path
-        let default_path    = set_default_path();
+    // Set default path
+    let default_path = set_default_path();
 
-        //// redirect the input for a file
-        //// anime path
-        // Create anime name
-        let path_anime_name = replace_characters_to_files(&anime_name.clone());
-        let anime_path = {default_path}.to_owned()+{&path_anime_name};
-        // try to find the anime folder
-        anime_file_exists(anime_path.clone());
+    //// redirect the input for a file
+    //// anime path
+    // Create anime name
+    let path_anime_name = replace_characters_to_files(&anime_name.clone());
+    let anime_path      = { default_path }.to_owned() + { &path_anime_name };
+    // try to find the anime folder
+    anime_file_exists(anime_path.clone());
 
-        // Set anime waifu
-        print!("What is the anime waifu UwU?:");
-        io::stdout().flush().unwrap();
+    // Set anime waifu
+    print!("What is the anime waifu UwU?:");
+    io::stdout().flush().unwrap();
 
-        //// user input
-        let _ = io::stdin()
-            .read_line(&mut anime_waifu)
-            .expect("Failed to read line");
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut anime_waifu)
+        .expect("Failed to read line");
 
-        //// delete newlines
-        let len = anime_waifu.len();
-        anime_waifu.truncate(len - 1);
+    //// delete newlines
+    let len = anime_waifu.len();
+    anime_waifu.truncate(len - 1);
 
-
-        // Set anime file
-        let anime_waifu = "waifu: ".to_owned()+{&anime_waifu};
-        let anime_file  = {anime_path}.to_owned()+"/anime.conf";
-
-        //// redirect the input for a file
-        write_in_file(anime_file,&anime_waifu);
+    // Set anime file
+    let anime_waifu = "waifu: ".to_owned() + { &anime_waifu };
+    let anime_file = { anime_path }.to_owned() + "/anime.conf";
+    
+    //// redirect the input for a file
+    write_in_file(anime_file, &anime_waifu);
 }
 // Add an anime waifu end
 
@@ -941,34 +1046,32 @@ fn add_waifu() {
 
 // Add an anime waifu from no interactive questions
 fn add_waifu_nointeractive() {
-// Set args
+    // Set args
     let args: Vec<String> = env::args().collect();
-
 
     // anime name
     if &args[3] == "--anime" {
-        let anime_name      = &args[4];
-        let anime_name      = replace_characters_to_files(&anime_name.clone());
+        let anime_name = &args[4];
+        let anime_name = replace_characters_to_files(&anime_name.clone());
         // Set default path
-        let default_path    = set_default_path();
+        let default_path = set_default_path();
 
         //// redirect the input for a file
         //// anime path
         // Create anime name
         let path_anime_name = replace_characters_to_files(&anime_name.clone());
-        let anime_path      = {default_path}.to_owned()+{&path_anime_name};
+        let anime_path      = { default_path }.to_owned() + { &path_anime_name };
         // try to find the anime folder
         anime_file_exists(anime_path.clone());
 
         // Set anime waifu
         let anime_waifu = &args[2];
         // Set anime file
-        let anime_waifu = "waifu: ".to_owned()+{&anime_waifu};
-        let anime_file  = {anime_path}.to_owned()+"/anime.conf";
+        let anime_waifu = "waifu: ".to_owned() + { &anime_waifu };
+        let anime_file  = { anime_path }.to_owned() + "/anime.conf";
 
         //// redirect the input for a file
-        write_in_file(anime_file,&anime_waifu);
-
+        write_in_file(anime_file, &anime_waifu);
     } else {
         println!("Argument: '{}' not found", &args[3]);
         std::process::exit(1);
@@ -978,43 +1081,47 @@ fn add_waifu_nointeractive() {
 
 
 
+
+
 // Delete anime waifu
 fn del_waifu() {
-// Set default vars
+    // Set default vars
     let mut anime_name = String::new();
     let mut question   = String::new();
-// anime name
-        print!("What is the anime name?:");
-        io::stdout().flush().unwrap();
+    // anime name
+    print!("What is the anime name?:");
+    io::stdout().flush().unwrap();
 
-        //// user input
-        let _ = io::stdin()
-            .read_line(&mut anime_name)
-            .expect("Failed to read line");
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut anime_name)
+        .expect("Failed to read line");
 
     let default_path = set_default_path();
-    let anime_file   = default_path.to_owned()+&replace_characters_to_files(&anime_name)
-        .replace("\n", "")
-        .to_owned()+"/anime.conf";
+    let anime_file = default_path.to_owned()
+        + &replace_characters_to_files(&anime_name)
+            .replace("\n", "")
+            .to_owned()
+        + "/anime.conf";
     anime_file_exists(anime_file.clone());
 
-        //// Do you really want to remove the waifu UwU?
-        print!("Do you really want to remove the waifu UwU[Y|N]?:");
-        io::stdout().flush().unwrap();
+    //// Do you really want to remove the waifu UwU?
+    print!("Do you really want to remove the waifu UwU[Y|N]?:");
+    io::stdout().flush().unwrap();
 
-        // user input
-        let _ = io::stdin()
-            .read_line(&mut question)
-            .expect("Failed to read line");
+    // user input
+    let _ = io::stdin()
+        .read_line(&mut question)
+        .expect("Failed to read line");
 
-        let question = question.as_str();
-    
+    let question = question.as_str();
+
     match question {
-        "Y\n"  => {
+        "Y\n" => {
             reconf_anime("waifu: ", "", &anime_file);
             let _ = replace_string_infile("", "waifu: ", &anime_file);
             println!("Waifu removed");
-            },
+        }
 
         "N\n" => println!("Waifu not removed."),
         _ => println!("Option not valid\nOption: {}", question),
@@ -1024,43 +1131,324 @@ fn del_waifu() {
 
 
 
+
+
 // Delete an anime waifu in a non-interactive way
 fn del_waifu_nointeractive() {
-// Set args
+    // Set args
     let args: Vec<String> = env::args().collect();
 
     // Set default vars
-    let mut question   = String::new();
+    let mut question = String::new();
     // anime name
-    let anime_name   = &args[2]; 
+    let anime_name   = &args[2];
 
     let default_path = set_default_path();
-    let anime_file   = default_path.to_owned()+&replace_characters_to_files(&anime_name)
-        .replace("\n", "")
-        .to_owned()+"/anime.conf";
+    let anime_file   = default_path.to_owned()
+        + &replace_characters_to_files(&anime_name)
+            .replace("\n", "")
+            .to_owned()
+        + "/anime.conf";
     anime_file_exists(anime_file.clone());
 
-        //// Do you really want to remove the waifu UwU?
-        print!("Do you really want to remove the waifu UwU[Y|N]?:");
-        io::stdout().flush().unwrap();
+    //// Do you really want to remove the waifu UwU?
+    print!("Do you really want to remove the waifu UwU[Y|N]?:");
+    io::stdout().flush().unwrap();
 
-        // user input
-        let _ = io::stdin()
-            .read_line(&mut question)
-            .expect("Failed to read line");
+    // user input
+    let _ = io::stdin()
+        .read_line(&mut question)
+        .expect("Failed to read line");
 
-        let question = question.as_str();
-    
+    let question = question.as_str();
+
     match question {
-        "Y\n"  => {
+        "Y\n" => {
             reconf_anime("waifu: ", "", &anime_file);
             let _ = replace_string_infile("", "waifu: ", &anime_file);
             println!("Waifu removed");
-            },
+        }
 
         "N\n" => println!("Waifu not removed."),
         _ => println!("Option not valid\nOption: {}", question),
-    }  
+    }
 }
 // Delete an anime waifu in a non-interactive way END
 
+
+
+
+
+// Add rank
+fn add_rank() {
+    // Set default vars
+    let mut anime_name = String::new();
+    let mut anime_rank = String::new();
+
+    // anime name
+    print!("What is the anime name?:");
+    io::stdout().flush().unwrap();
+
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut anime_name)
+        .expect("Failed to read line");
+
+    anime_name = replace_characters_to_files(&anime_name);
+    //// delete newlines
+    let len = anime_name.len();
+    anime_name.truncate(len - 1);
+
+    // Set default path
+    let default_path = set_default_path();
+
+    //// redirect the input for a file
+    //// anime path
+    // Create anime name
+    let path_anime_name = replace_characters_to_files(&anime_name.clone());
+    let anime_path      = { default_path }.to_owned() + { &path_anime_name };
+    // try to find the anime folder
+    anime_file_exists(anime_path.clone());
+
+    // Set anime rank
+    print!("What is the anime rank?:");
+    io::stdout().flush().unwrap();
+
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut anime_rank)
+        .expect("Failed to read line");
+
+    match anime_rank.trim().parse::<i32>() {
+        Ok(_) => (),
+        Err(_) => {
+            println!("Letters in characters other than numbers are not allowed for rank");
+            std::process::exit(1);
+        }
+    };
+
+   
+    //// delete newlines
+    let len = anime_rank.len();
+    anime_rank.truncate(len - 1);
+
+    // Set anime file
+    let anime_rank = "\nrank: ".to_owned()  + { &anime_rank };
+    let anime_file = { anime_path }.to_owned() + "/anime.conf";
+
+    //// redirect the input for a file
+    write_in_file(anime_file, &anime_rank);
+}
+// Add an anime rank end
+
+
+// Add rank
+fn add_rank_nointeractive() {
+    // Set args
+    let args: Vec<String> = env::args().collect();
+    let anime_name        = &args[2];
+
+    match args[3].as_str() {
+        "--rank" => {
+            print!("");
+        },
+        _ => println!("Argument not found"),
+    }
+    
+
+    let anime_rank = &args[4];
+
+    match anime_rank.trim().parse::<i32>() {
+        Ok(_) => (),
+        Err(_) => {
+            println!("Letters in characters other than numbers are not allowed for rank");
+            std::process::exit(1);
+        }
+    };
+
+    let mut anime_name = replace_characters_to_files(anime_name);
+
+    // Set default path
+    let default_path = set_default_path();
+
+    //// redirect the input for a file
+    //// anime path
+    // Create anime name
+    let path_anime_name = replace_characters_to_files(&anime_name.clone());
+    let anime_path      = { default_path }.to_owned() + { &path_anime_name };
+    // try to find the anime folder
+    anime_file_exists(anime_path.clone());
+
+   
+    // Set anime file
+    let anime_rank = "\nrank: ".to_owned()  + { &anime_rank };
+    let anime_file = { anime_path }.to_owned() + "/anime.conf";
+    //// redirect the input for a file
+    write_in_file(anime_file, &anime_rank);
+}
+// Add an anime rank end
+
+
+
+
+
+
+
+
+fn show_rank() {
+    let default_path = set_default_path();
+    let mut full_rank: Vec<(i32, String)> = Vec::new();
+
+    if let Err(e) = show_subdirs_to_rank(&default_path, &mut full_rank) {
+        eprintln!("Erro: {}", e);
+    }
+
+    // Sort rank
+    full_rank.sort_by_key(|k| k.0);
+    // Show rank
+    for (rank, anime_name) in full_rank {
+        println!("{} -> {}", rank, anime_name);
+    }
+}
+
+fn show_subdirs_to_rank(
+    default_path: &str,
+    full_rank: &mut Vec<(i32, String)>
+) -> io::Result<()> {
+    let read_path = fs::read_dir(default_path)?;
+
+    for read_paths in read_path {
+        let read_paths = read_paths?;
+        let view_path = read_paths.path();
+
+        if view_path.is_dir() {
+            show_subdirs_to_rank(view_path.to_str().unwrap(), full_rank)?;
+        } else if view_path.is_file() {
+            show_files_in_subdirs_to_rank(&view_path, full_rank)?;
+        }
+    }
+    Ok(())
+}
+
+fn show_files_in_subdirs_to_rank(
+    default_path: &Path,
+    full_rank: &mut Vec<(i32, String)>
+) -> io::Result<()> {
+    // Open file
+    let mut open_path = fs::File::open(default_path)?;
+    let mut content = String::new();
+    open_path.read_to_string(&mut content)?;
+    
+    // Set regex
+    let regex_number: Regex = Regex::new(r"rank:\s*(\d+)").unwrap();
+    let regex_name: Regex = Regex::new(r"name:\s*(.*)").unwrap();
+    //// Aply regex
+    // Number matchs
+    if let Some(number_match) = regex_number.captures(&content) {
+        let rank = number_match.get(1).unwrap().as_str().parse::<i32>().unwrap();
+        // Name matchs
+        if let Some(name_match) = regex_name.captures(&content) {
+            let anime_name = name_match.get(1).unwrap().as_str().to_string();
+            full_rank.push((rank, anime_name));
+        }
+    }
+
+    Ok(())
+}
+
+
+
+
+// Delete anime rank
+fn del_rank() {
+    // Set default vars
+    let mut anime_name = String::new();
+    let mut question   = String::new();
+    // anime name
+    print!("What is the anime name?:");
+    io::stdout().flush().unwrap();
+
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut anime_name)
+        .expect("Failed to read line");
+
+    let default_path = set_default_path();
+    let anime_file   = default_path.to_owned()
+        + &replace_characters_to_files(&anime_name)
+            .replace("\n", "")
+            .to_owned()
+        + "/anime.conf";
+    anime_file_exists(anime_file.clone());
+
+    //// Do you really want to remove the rank UwU?
+    print!("Do you really want to remove the rank[Y|N]?:");
+    io::stdout().flush().unwrap();
+
+    // user input
+    let _ = io::stdin()
+        .read_line(&mut question)
+        .expect("Failed to read line");
+
+    let question = question.as_str();
+
+    match question {
+        "Y\n" => {
+            reconf_anime("rank: ", "", &anime_file);
+            let _ = replace_string_infile("", "rank: ", &anime_file);
+            println!("rank removed");
+        }
+
+        "N\n" => println!("rank not removed."),
+        _ => println!("Option not valid\nOption: {}", question),
+    }
+}
+// Delete anime rank end
+
+
+
+
+
+
+// Delete anime rank
+fn del_rank_nointeractive() {
+    // Set default vars
+    let mut question      = String::new();
+    // Set args
+    let args: Vec<String> = env::args().collect();
+    // Set anime name
+    let anime_name        = &args[2];
+    
+    
+
+    let default_path = set_default_path();
+    let anime_file   = default_path.to_owned()
+        + &replace_characters_to_files(&anime_name)
+            .replace("\n", "")
+            .to_owned()
+        + "/anime.conf";
+    anime_file_exists(anime_file.clone());
+
+    //// Do you really want to remove the rank UwU?
+    print!("Do you really want to remove the rank[Y|N]?:");
+    io::stdout().flush().unwrap();
+
+    // user input
+    let _ = io::stdin()
+        .read_line(&mut question)
+        .expect("Failed to read line");
+
+    let question = question.as_str();
+
+    match question {
+        "Y\n" => {
+            reconf_anime("rank: ", "", &anime_file);
+            let _ = replace_string_infile("", "rank: ", &anime_file);
+            println!("rank removed");
+        }
+
+        "N\n" => println!("rank not removed."),
+        _ => println!("Option not valid\nOption: {}", question),
+    }
+}
+// Delete anime rank end
