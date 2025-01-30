@@ -44,6 +44,8 @@ fn get_args(number_ofargs: usize) {
         "-add-rank" => add_rank(),
         "--rank" => show_rank(),
         "-del-rank" => del_rank(),
+        "--del-rank" => del_rank_nointeractive(),
+        "--add-rank" => add_rank_nointeractive(),
         _ => println!("Argument: {argument} not found"),
     }
 }
@@ -56,9 +58,9 @@ fn get_args(number_ofargs: usize) {
 
 fn replace_characters_to_files(string: &str) -> String {
     let string = string
-        .replace("/", "#")
-        .replace("\\", "##")
-        .replace("*", "###")
+        .replace("/",    "#")
+        .replace("\\",  "##")
+        .replace("*",  "###")
         .replace("?", "####");
     string
 }
@@ -118,6 +120,9 @@ fn get_help() {
              anicli-list --show  [ANIME NAME]
              anicli-list --waifu [WAIFU] --anime [ANIME NAME]
              anicli-list --del-waifu [ANIME NAME]
+             anicli-list --rank
+             anicli-list --del-rank [ANIME NAME]
+             anicli-list --add-rank [ANIME NAME] --rank [RANK]
     Options:
              --help | -h        Print this message
              -add               Add a anime
@@ -136,6 +141,8 @@ fn get_help() {
              --del              Delete an anime without interactive questions
              --rconf            Reconfigure an anime without interactive questions
              --waifu            Add an anime waifu from no interactive questions
+             --add-rank         Add rank to an anime without interactive questions
+             --del-rank         Remove rank from an anime without interactive questions
     The --add Options:
              --status           Add an anime status without a interactive questions
              --ep               Add an anime episode without a interactive questions
@@ -146,6 +153,7 @@ fn get_help() {
              --ep               Reconfigure an anime episode without interactive questions
              --season           Reconfigure an anime season without interactive questions
              --waifu            Reconfigure an anime waifu without interactive questions
+             --rank             Reconfigure an anime rank without interactive questions
     WARNING: Only one argument can be used at a time";
     // Print help
     println!("{help}");
@@ -1234,6 +1242,55 @@ fn add_rank() {
 // Add an anime rank end
 
 
+// Add rank
+fn add_rank_nointeractive() {
+    // Set args
+    let args: Vec<String> = env::args().collect();
+    let anime_name        = &args[2];
+
+    match args[3].as_str() {
+        "--rank" => {
+            print!("");
+        },
+        _ => println!("Argument not found"),
+    }
+    
+
+    let anime_rank = &args[4];
+
+    match anime_rank.trim().parse::<i32>() {
+        Ok(_) => (),
+        Err(_) => {
+            println!("Letters in characters other than numbers are not allowed for rank");
+            std::process::exit(1);
+        }
+    };
+
+    let mut anime_name = replace_characters_to_files(anime_name);
+
+    // Set default path
+    let default_path = set_default_path();
+
+    //// redirect the input for a file
+    //// anime path
+    // Create anime name
+    let path_anime_name = replace_characters_to_files(&anime_name.clone());
+    let anime_path      = { default_path }.to_owned() + { &path_anime_name };
+    // try to find the anime folder
+    anime_file_exists(anime_path.clone());
+
+   
+    // Set anime file
+    let anime_rank = "\nrank: ".to_owned()  + { &anime_rank };
+    let anime_file = { anime_path }.to_owned() + "/anime.conf";
+    //// redirect the input for a file
+    write_in_file(anime_file, &anime_rank);
+}
+// Add an anime rank end
+
+
+
+
 
 
 
@@ -1315,6 +1372,54 @@ fn del_rank() {
     let _ = io::stdin()
         .read_line(&mut anime_name)
         .expect("Failed to read line");
+
+    let default_path = set_default_path();
+    let anime_file   = default_path.to_owned()
+        + &replace_characters_to_files(&anime_name)
+            .replace("\n", "")
+            .to_owned()
+        + "/anime.conf";
+    anime_file_exists(anime_file.clone());
+
+    //// Do you really want to remove the rank UwU?
+    print!("Do you really want to remove the rank[Y|N]?:");
+    io::stdout().flush().unwrap();
+
+    // user input
+    let _ = io::stdin()
+        .read_line(&mut question)
+        .expect("Failed to read line");
+
+    let question = question.as_str();
+
+    match question {
+        "Y\n" => {
+            reconf_anime("rank: ", "", &anime_file);
+            let _ = replace_string_infile("", "rank: ", &anime_file);
+            println!("rank removed");
+        }
+
+        "N\n" => println!("rank not removed."),
+        _ => println!("Option not valid\nOption: {}", question),
+    }
+}
+// Delete anime rank end
+
+
+
+
+
+
+// Delete anime rank
+fn del_rank_nointeractive() {
+    // Set default vars
+    let mut question      = String::new();
+    // Set args
+    let args: Vec<String> = env::args().collect();
+    // Set anime name
+    let anime_name        = &args[2];
+    
+    
 
     let default_path = set_default_path();
     let anime_file   = default_path.to_owned()
