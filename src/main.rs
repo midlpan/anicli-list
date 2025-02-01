@@ -46,6 +46,8 @@ fn get_args(number_ofargs: usize) {
         "-del-rank" => del_rank(),
         "--del-rank" => del_rank_nointeractive(),
         "--add-rank" => add_rank_nointeractive(),
+        "-migrate" => migrate_path().expect("An error occurred migrating the anime folder"),
+        "--migrate" => migrate_path_nointeractive().expect("An error occurred migrating the anime folder"),
         _ => println!("Argument: {argument} not found"),
     }
 }
@@ -58,10 +60,15 @@ fn get_args(number_ofargs: usize) {
 
 fn replace_characters_to_files(string: &str) -> String {
     let string = string
-        .replace("/",    "#")
-        .replace("\\",  "##")
-        .replace("*",  "###")
-        .replace("?", "####");
+        .replace("/",          "#")
+        .replace("\\",        "##")
+        .replace("*",        "###")
+        .replace(":",       "####")
+        .replace("?",      "#####")
+        .replace("<",     "######")
+        .replace(">",    "#######")
+        .replace("\"",  "########")
+        .replace("|",  "#########");
     string
 }
 
@@ -73,7 +80,9 @@ fn replace_characters_to_files(string: &str) -> String {
 
 fn set_default_path() -> String {
     // set default path var
-    let mut db_conf_file = File::open("path.conf").expect("File path.conf not exists");
+    let home_dir         = std::env::var("HOME").unwrap();
+    let conf_path        = format!("{}/.config/anicli-list/path.conf", home_dir);
+    let mut db_conf_file = File::open(conf_path).expect("File path.conf not exists");
     let mut default_path = String::new();
 
     db_conf_file
@@ -83,6 +92,12 @@ fn set_default_path() -> String {
     anime_file_exists(default_path.clone());
     default_path
 }
+
+
+
+
+
+
 
 fn add_anime_file(name_arg: usize, new_line: usize, add_string: &str) {
     // args
@@ -123,6 +138,7 @@ fn get_help() {
              anicli-list --rank
              anicli-list --del-rank [ANIME NAME]
              anicli-list --add-rank [ANIME NAME] --rank [RANK]
+             anicli-list --migrate [NEW DIRECTORY]
     Options:
              --help | -h        Print this message
              -add               Add a anime
@@ -136,6 +152,7 @@ fn get_help() {
              -add-rank          Rank an anime
              -del-rank          Delete a rank
              -rank              Show the rank
+             -migrate           Migrates animes from the default directory to a new directory
 
              --add              Add an anime without interactive questions
              --del              Delete an anime without interactive questions
@@ -143,6 +160,7 @@ fn get_help() {
              --waifu            Add an anime waifu from no interactive questions
              --add-rank         Add rank to an anime without interactive questions
              --del-rank         Remove rank from an anime without interactive questions
+             --migrate          Migrates animes from the default directory to a new director without interactive questions
     The --add Options:
              --status           Add an anime status without a interactive questions
              --ep               Add an anime episode without a interactive questions
@@ -1266,7 +1284,7 @@ fn add_rank_nointeractive() {
         }
     };
 
-    let mut anime_name = replace_characters_to_files(anime_name);
+    let anime_name = replace_characters_to_files(anime_name);
 
     // Set default path
     let default_path = set_default_path();
@@ -1452,3 +1470,185 @@ fn del_rank_nointeractive() {
     }
 }
 // Delete anime rank end
+
+
+
+// Migrate anime path
+fn migrate_path() -> io::Result<()> {
+    // Set atual default_path
+    let home_dir                = std::env::var("HOME").unwrap();
+    let conf_path               = format!("{}/.config/anicli-list/path.conf", home_dir);
+    let default_path            = set_default_path();
+    
+    // Set new default_path
+    let mut new_default_path = String::new();
+    print!("What the new default path:");
+    io::stdout().flush().unwrap();
+
+    //// user input
+    let _ = io::stdin()
+        .read_line(&mut  new_default_path)
+        .expect("Failed to read line");
+    //// delete newlines
+    let len = new_default_path.len();
+    new_default_path.truncate(len - 1);
+  
+    // Sheck if the file exists
+    anime_file_exists(new_default_path.clone());
+
+    // Do you really want to reconfigure the default path?
+    let mut question = String::new();
+    print!("Do you really want to reconfigure the default path[Y|N]?:");
+    io::stdout().flush().unwrap();
+
+    // user input
+    let _ = io::stdin()
+        .read_line(&mut question)
+        .expect("Failed to read line");
+
+    match question.as_str() {
+        "Y\n" => {
+            let _ = replace_string_infile(&new_default_path, &default_path, &conf_path);
+            // Move animes to the new path
+            // Read Directory
+            let read_path = fs::read_dir(&default_path)?;
+            
+            for read_paths in read_path {
+                let read_paths = read_paths?;
+                let view_path  = read_paths.path();
+                if view_path.is_dir() {
+                    //// Move files
+                    // Set view_path
+                    // Convert &view_path to &str
+                    let view_path_str         = format!("{:?}", &view_path);
+                    let mut view_path_char    = view_path_str.chars();
+                    view_path_char.next();
+                    view_path_char.next_back();
+                    let view_path_str_to_file: String = view_path_char.collect();
+                    // Set vars
+                    // Set anime file
+                    let anime_file    = view_path_str_to_file.as_str().to_owned()+"/anime.conf";
+                    
+                    // Set regex
+                    let regex         = Regex::new(r"[^/]+$").unwrap();
+                    
+                    if let Some(capture)        = regex.captures(&view_path_str) {
+                        // Subdir
+                        let subdir     = &capture[0];
+                        let mut subdir = subdir.chars();
+                        subdir.next_back();
+                        let subdir_string: String = subdir.clone().collect();
+                        let _ = subdir_string.as_str();
+                        // Convert subdir to &str
+                        let new_subdir    = new_default_path.to_owned()+"/"+subdir_string.as_str();
+                        // Copy files
+                        let _ = fs::create_dir(&new_subdir);
+                        // Set new anime fiel
+                        let new_anime_file = new_subdir.to_owned()+"/anime.conf";
+                        let _ = fs::copy(anime_file, new_anime_file);
+                        //// Delete files
+                        let _ = fs::remove_dir_all(view_path);
+
+                    }
+                }
+            }
+           
+            println!("Default path reconfigured.");
+        }
+
+        "N\n" => println!("Default path not reconfigured."),
+        _ => println!("Option not valid\nOption: {}", question),
+    }
+    Ok(())
+
+
+}
+// Migrate anime path end
+
+
+
+
+
+// Migrate anime nointeractive
+fn migrate_path_nointeractive() -> io::Result<()> {
+    // Set args
+    let args: Vec<String> = env::args().collect();
+    // Set atual default_path
+    let home_dir                = std::env::var("HOME").unwrap();
+    let conf_path               = format!("{}/.config/anicli-list/path.conf", home_dir);
+    let default_path            = set_default_path();
+    
+    // Set new default_path
+    let new_default_path = &args[2];
+    // Sheck if the file exists
+    anime_file_exists(new_default_path.clone());
+
+    // Do you really want to reconfigure the default path?
+    let mut question = String::new();
+    print!("Do you really want to reconfigure the default path[Y|N]?:");
+    io::stdout().flush().unwrap();
+
+    // user input
+    let _ = io::stdin()
+        .read_line(&mut question)
+        .expect("Failed to read line");
+
+
+    match question.as_str() {
+        "Y\n" => {
+            let _ = replace_string_infile(&new_default_path, &default_path, &conf_path);
+            // Move animes to the new path
+            // Read Directory
+            let read_path = fs::read_dir(&default_path)?;
+            
+            for read_paths in read_path {
+                let read_paths = read_paths?;
+                let view_path  = read_paths.path();
+                if view_path.is_dir() {
+                    //// Move files
+                    // Set view_path
+                    // Convert &view_path to &str
+                    let view_path_str         = format!("{:?}", &view_path);
+                    let mut view_path_char    = view_path_str.chars();
+                    view_path_char.next();
+                    view_path_char.next_back();
+                    let view_path_str_to_file: String = view_path_char.collect();
+                    // Set vars
+                    // Set anime file
+                    let anime_file    = view_path_str_to_file.as_str().to_owned()+"/anime.conf";
+                    
+                    // Set regex
+                    let regex         = Regex::new(r"[^/]+$").unwrap();
+                    
+                    if let Some(capture)        = regex.captures(&view_path_str) {
+                        // Subdir
+                        let subdir     = &capture[0];
+                        let mut subdir = subdir.chars();
+                        subdir.next_back();
+                        let subdir_string: String = subdir.clone().collect();
+                        let _ = subdir_string.as_str();
+                        // Convert subdir to &str
+                        let new_subdir    = new_default_path.to_owned()+"/"+subdir_string.as_str();
+                        // Copy files
+                        let _ = fs::create_dir(&new_subdir);
+                        // Set new anime fiel
+                        let new_anime_file = new_subdir.to_owned()+"/anime.conf";
+                        let _ = fs::copy(anime_file, new_anime_file);
+                        //// Delete files
+                        let _ = fs::remove_dir_all(view_path);
+
+                    }
+                }
+            }
+           
+            println!("Default path reconfigured.");
+        }
+
+        "N\n" => println!("Default path not reconfigured."),
+        _ => println!("Option not valid\nOption: {}", question),
+    }
+    Ok(())
+
+
+}
+// Migrate anime nointeractive end
