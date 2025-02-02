@@ -21,4 +21,4 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Quick install
-      run: cargo -r && mv target/releases/anicli-list /usr/bin
+      run: cargo build -r && mv target/releases/anicli-list /usr/bin
